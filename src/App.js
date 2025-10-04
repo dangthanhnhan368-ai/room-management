@@ -115,6 +115,10 @@ useEffect(() => {
   useEffect(() => {
     localStorage.setItem('roomManagementData', JSON.stringify(rooms));
   }, [rooms]);
+  useEffect(() => {
+  const currentCount = parseInt(localStorage.getItem('visitCount') || '0');
+  localStorage.setItem('visitCount', (currentCount + 1).toString());
+}, []);
 
   const currentDate = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -220,7 +224,7 @@ useEffect(() => {
   };
 
   const handleAdminLogin = () => {
-    if (adminPassword === 'admin123') {
+    if (adminPassword === 'admin112233') {
       setIsAdminAuthenticated(true);
       setCurrentView('admin');
     } else {
@@ -923,11 +927,11 @@ useEffect(() => {
             ))}
           </div>
 
-          <div className="text-center mt-8">
-            <button className="bg-gray-800 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition">
-              Đổi ngôn ngữ tiếng Anh
-            </button>
-          </div>
+<div className="text-center mt-8">
+  <p className="text-gray-600 text-sm">
+    👁️ Lượt truy cập: <span className="font-semibold">{localStorage.getItem('visitCount') || 0}</span>
+  </p>
+</div>
         </div>
       </div>
     );
