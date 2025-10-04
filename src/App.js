@@ -958,7 +958,6 @@ useEffect(() => {
           >
             Quay lại
           </button>
-          <p className="text-sm text-gray-500 mt-4 text-center">Mật khẩu demo: admin123</p>
         </div>
       </div>
     );
