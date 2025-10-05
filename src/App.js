@@ -132,6 +132,7 @@ const RoomManagementSystem = () => {
   const [adminPassword, setAdminPassword] = useState('');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [isFirebaseAuthenticated, setIsFirebaseAuthenticated] = useState(false);
+  const [isLoadingFromFirebase, setIsLoadingFromFirebase] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [showTransactionForm, setShowTransactionForm] = useState(false);
@@ -201,50 +202,45 @@ useEffect(() => {
   
   return () => unsubscribe();
 }, []);
-// Đọc dữ liệu từ Firebase (real-time sync)
+// Đọc dữ liệu từ Firebase
 useEffect(() => {
   const roomsRef = ref(database, 'rooms');
   
   const unsubscribe = onValue(roomsRef, (snapshot) => {
     const data = snapshot.val();
     if (data && Array.isArray(data)) {
+      setIsLoadingFromFirebase(true); // Đánh dấu đang load
       const converted = convertFromFirebase(data);
       if (converted && converted.length > 0) {
         setRooms(converted);
       }
-    } else if (!data) {
-      // Nếu Firebase trống, khởi tạo dữ liệu mặc định
-      const firebaseData = convertToFirebase(initialRooms);
-      set(ref(database, 'rooms'), firebaseData);
+      setTimeout(() => setIsLoadingFromFirebase(false), 100);
     }
   });
 
   return () => unsubscribe();
 }, []);
 
-// Lưu dữ liệu lên Firebase khi thay đổi (chỉ khi đã đăng nhập)
+// Lưu dữ liệu lên Firebase
 useEffect(() => {
-  if (!rooms || rooms.length === 0) return;
+  // KHÔNG lưu nếu đang load từ Firebase
+  if (isLoadingFromFirebase) return;
+  if (!rooms || rooms.length === 0 || !isFirebaseAuthenticated) return;
   
-  // Chỉ lưu nếu đã đăng nhập Firebase
-  if (!isFirebaseAuthenticated) {
-    console.log('Chưa đăng nhập Firebase, không lưu dữ liệu');
-    return;
-  }
+  const timer = setTimeout(() => {
+    const roomsRef = ref(database, 'rooms');
+    const firebaseData = convertToFirebase(rooms);
+    
+    if (firebaseData && firebaseData.length > 0) {
+      console.log('Saving to Firebase:', new Date().toLocaleTimeString());
+      set(roomsRef, firebaseData).catch(error => {
+        console.error('Firebase set error:', error);
+      });
+    }
+  }, 500);
   
-  const roomsRef = ref(database, 'rooms');
-  const firebaseData = convertToFirebase(rooms);
-  
-  if (firebaseData && firebaseData.length > 0) {
-    set(roomsRef, firebaseData).catch(error => {
-      console.error('Firebase set error:', error);
-      
-      if (error.code === 'PERMISSION_DENIED') {
-        alert('⚠️ Bạn cần đăng nhập Admin để chỉnh sửa dữ liệu!');
-      }
-    });
-  }
-}, [rooms, isFirebaseAuthenticated]);
+  return () => clearTimeout(timer);
+}, [rooms, isFirebaseAuthenticated, isLoadingFromFirebase]);
 
   const currentDate = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -1211,7 +1207,18 @@ const handleAdminLogin = async () => {
                     <Home size={18} />
                     Trang chủ
                   </button>
-              
+ <button
+  onClick={() => {
+    const roomsRef = ref(database, 'rooms');
+    const firebaseData = convertToFirebase(rooms);
+    set(roomsRef, firebaseData)
+      .then(() => alert('Đã lưu lên Firebase!'))
+      .catch(error => alert('Lỗi: ' + error.message));
+  }}
+  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+>
+  💾 Lưu Data
+</button>             
 <button
   onClick={async () => {
     try {
