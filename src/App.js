@@ -168,60 +168,71 @@ useEffect(() => {
   };
 
   const handleExcelUpload = (event, roomId) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  const file = event.target.files[0];
+  if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-        
-        const newMembers = jsonData.map((row, index) => ({
-          id: row.ID || index,
-          name: row['Tên Thành Viên'] || row['Tên thành viên'] || '',
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      
+      // Đọc sheet tổng hợp dạng array
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rawData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
+      
+      // Bỏ dòng header (dòng 0)
+      const dataRows = rawData.slice(1);
+      
+      const newMembers = dataRows
+        .filter(row => row[0] !== '') // Lọc dòng trống
+        .map(row => ({
+          id: parseInt(row[0]) || 0, // STT
+          name: (row[1] || '').toString().trim(), // Tên
           points: {
-            [dateColumns[0]]: parseFloat(row[dateColumns[0]] || 0),
-            [dateColumns[1]]: parseFloat(row[dateColumns[1]] || 0),
-            [dateColumns[2]]: parseFloat(row[dateColumns[2]] || 0),
+            [dateColumns[0]]: parseFloat((row[5] || '0').toString().replace(/,/g, '').trim()) || 0,
+            [dateColumns[1]]: parseFloat((row[5] || '0').toString().replace(/,/g, '').trim()) || 0,
+            [dateColumns[2]]: parseFloat((row[5] || '0').toString().replace(/,/g, '').trim()) || 0,
           },
-          deadline: row['Hạn thu KT'] || row['Gia hạn phí'] || '',
-          note: row['Ghi chú'] || ''
+          deadline: (row[2] || '').toString().trim(), // Gia hạn phí
+          note: (row[3] || '').toString().trim() // Quỹ làm ghi chú
         }));
 
-        const newTransactions = {};
-        workbook.SheetNames.slice(1).forEach(sheetName => {
-          const sheet = workbook.Sheets[sheetName];
-          const transactions = XLSX.utils.sheet_to_json(sheet);
-          const memberId = parseInt(sheetName);
-          if (!isNaN(memberId)) {
-            newTransactions[memberId] = transactions.map(t => ({
-              date: t['Ngày'] || '',
-              description: t['Diễn Giải'] || '',
-              price: parseFloat(t['Giá Tiền'] || 0),
-              role: t['Vai Trò (Giao/Nhận)'] || '',
-              partner: t['Đối Tác'] || '',
-              points: parseFloat(t['Điểm (+/-)'] || 0)
+      // Đọc lịch sử giao dịch từ các sheet khác
+      const newTransactions = {};
+      workbook.SheetNames.slice(1).forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        const memberId = parseInt(sheetName);
+        
+        if (!isNaN(memberId) && sheetData.length > 1) {
+          // Giả sử dòng đầu là header, bỏ qua
+          newTransactions[memberId] = sheetData.slice(1)
+            .filter(row => row.length > 0 && row[0])
+            .map(row => ({
+              date: (row[0] || '').toString().trim(),
+              description: (row[1] || '').toString().trim(),
+              price: parseFloat((row[2] || '0').toString().replace(/,/g, '')) || 0,
+              role: (row[3] || '').toString().trim(),
+              partner: (row[4] || '').toString().trim(),
+              points: parseFloat(row[5]) || 0
             }));
-          }
-        });
+        }
+      });
 
-        setRooms(rooms.map(room => 
-          room.id === roomId 
-            ? { ...room, members: newMembers, transactions: newTransactions }
-            : room
-        ));
+      setRooms(rooms.map(room => 
+        room.id === roomId 
+          ? { ...room, members: newMembers, transactions: newTransactions }
+          : room
+      ));
 
-        alert('Upload Excel thành công!');
-      } catch (error) {
-        alert('Lỗi khi đọc file Excel: ' + error.message);
-      }
-    };
-    reader.readAsArrayBuffer(file);
+      alert('Upload Excel thành công!');
+    } catch (error) {
+      alert('Lỗi khi đọc file Excel: ' + error.message);
+    }
   };
+  reader.readAsArrayBuffer(file);
+};
 
   const handleAdminLogin = () => {
     if (adminPassword === 'admin112233') {
