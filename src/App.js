@@ -184,41 +184,65 @@ useEffect(() => {
       // Bỏ dòng header (dòng 0)
       const dataRows = rawData.slice(1);
       
-      const newMembers = dataRows
-        .filter(row => row[0] !== '') // Lọc dòng trống
-        .map(row => ({
-          id: parseInt(row[0]) || 0, // STT
-          name: (row[1] || '').toString().trim(), // Tên
-          points: {
-            [dateColumns[0]]: parseFloat((row[5] || '0').toString().replace(/,/g, '').trim()) || 0,
-            [dateColumns[1]]: parseFloat((row[5] || '0').toString().replace(/,/g, '').trim()) || 0,
-            [dateColumns[2]]: parseFloat((row[5] || '0').toString().replace(/,/g, '').trim()) || 0,
-          },
-          deadline: (row[2] || '').toString().trim(), // Gia hạn phí
-          note: (row[3] || '').toString().trim() // Quỹ làm ghi chú
-        }));
+     const newMembers = dataRows
+  .filter(row => row[0] !== '' && row[0] !== null && row[0] !== undefined) // Lọc dòng trống
+  .map(row => {
+    // Xử lý cột "Gia hạn phí" (index 2) - có thể là Date object hoặc string
+    let deadline = '';
+    if (row[2]) {
+      if (row[2] instanceof Date) {
+        // Nếu là Date object, format thành dd/mm/yyyy
+        const d = row[2];
+        deadline = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+      } else if (typeof row[2] === 'number') {
+        // Nếu là số Excel date serial
+        const excelDate = XLSX.SSF.parse_date_code(row[2]);
+        deadline = `${String(excelDate.d).padStart(2, '0')}/${String(excelDate.m).padStart(2, '0')}/${excelDate.y}`;
+      } else {
+        // Nếu là string
+        deadline = row[2].toString().trim();
+      }
+    }
+    
+    return {
+      id: parseInt(row[0]) || 0, // STT
+      name: (row[1] || '').toString().trim(), // Tên
+      points: {
+        [dateColumns[0]]: parseFloat((row[5] || '0').toString().replace(/,/g, '').trim()) || 0,
+        [dateColumns[1]]: parseFloat((row[5] || '0').toString().replace(/,/g, '').trim()) || 0,
+        [dateColumns[2]]: parseFloat((row[5] || '0').toString().replace(/,/g, '').trim()) || 0,
+      },
+      deadline: deadline, // Cột 2: Gia hạn phí - đã xử lý format ngày
+      note: '' // Bỏ qua cột Quỹ (row[3]) - để trống
+    };
+  });
 
       // Đọc lịch sử giao dịch từ các sheet khác
-      const newTransactions = {};
-      workbook.SheetNames.slice(1).forEach(sheetName => {
-        const sheet = workbook.Sheets[sheetName];
-        const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-        const memberId = parseInt(sheetName);
-        
-        if (!isNaN(memberId) && sheetData.length > 1) {
-          // Giả sử dòng đầu là header, bỏ qua
-          newTransactions[memberId] = sheetData.slice(1)
-            .filter(row => row.length > 0 && row[0])
-            .map(row => ({
-              date: (row[0] || '').toString().trim(),
-              description: (row[1] || '').toString().trim(),
-              price: parseFloat((row[2] || '0').toString().replace(/,/g, '')) || 0,
-              role: (row[3] || '').toString().trim(),
-              partner: (row[4] || '').toString().trim(),
-              points: parseFloat(row[5]) || 0
-            }));
-        }
-      });
+const newTransactions = {};
+workbook.SheetNames.slice(1).forEach(sheetName => {
+  const sheet = workbook.Sheets[sheetName];
+  const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+  const memberId = parseInt(sheetName);
+  
+  if (!isNaN(memberId) && sheetData.length > 1) {
+    newTransactions[memberId] = sheetData.slice(3)
+      .filter(row => {
+        // Bỏ qua dòng header và dòng trống
+        const hasDate = row[1] && row[1].toString().trim() !== '' && row[1].toString().toLowerCase() !== 'ngày';
+        const hasDescription = row[2] && row[2].toString().trim() !== '' && row[2].toString().toLowerCase() !== 'nội dung' && row[2].toString().toLowerCase() !== 'diễn giải';
+        const hasPrice = row[3] && row[3].toString().trim() !== '' && row[3].toString().toLowerCase() !== 'giá tiền' && !isNaN(parseFloat(row[3].toString().replace(/,/g, '')));
+        return hasDate && hasDescription && hasPrice;
+      })
+      .map(row => ({
+        date: row[1] ? (typeof row[1] === 'number' ? XLSX.SSF.format('dd/mm', row[1]) : row[1].toString().trim()) : '',
+        description: (row[2] || '').toString().trim(),
+        price: parseFloat((row[3] || '0').toString().replace(/,/g, '')) || 0,
+        role: (row[4] || '').toString().trim(),
+        partner: (row[5] || '').toString().trim(),
+        points: parseFloat((row[6] || '0').toString().replace(/,/g, '')) || 0
+      }));
+  }
+});
 
       setRooms(rooms.map(room => 
         room.id === roomId 
