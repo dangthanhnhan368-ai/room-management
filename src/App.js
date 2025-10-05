@@ -390,8 +390,8 @@ const handleAdminLogin = async () => {
       // Đăng nhập Firebase với email/password admin
       await signInWithEmailAndPassword(
         auth, 
-        'admin@roommanagement.com', 
-        'Admin@123456'
+        'dangthanhnhan368@gmail.com', 
+        'Admin@112233'
       );
       
       setIsAdminAuthenticated(true);
