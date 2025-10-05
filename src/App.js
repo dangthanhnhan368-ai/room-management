@@ -1,6 +1,76 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, ArrowLeft, Home, Settings, Upload, Plus, Edit2, Trash2, Users, Download, FileJson } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { database } from './firebase';
+import { ref, set, onValue, update } from 'firebase/database';
+
+// Helper functions để chuyển đổi dữ liệu cho Firebase
+const convertToFirebase = (rooms) => {
+  if (!rooms || !Array.isArray(rooms)) {
+    console.log('convertToFirebase: Invalid input', rooms);
+    return [];
+  }
+  
+  try {
+    return rooms.map(room => {
+      if (!room) return null;
+      
+      return {
+        ...room,
+        members: Array.isArray(room.members) ? room.members.map(member => {
+          if (!member) return null;
+          
+          return {
+            ...member,
+            points: member.points && typeof member.points === 'object'
+              ? Object.entries(member.points).reduce((acc, [key, value]) => {
+                  acc[key.replace(/\//g, '_')] = value;
+                  return acc;
+                }, {})
+              : {}
+          };
+        }).filter(Boolean) : []
+      };
+    }).filter(Boolean);
+  } catch (error) {
+    console.error('convertToFirebase error:', error);
+    return [];
+  }
+};
+
+const convertFromFirebase = (rooms) => {
+  // Kiểm tra đầu vào
+  if (!rooms || !Array.isArray(rooms)) {
+    console.log('convertFromFirebase: Invalid input', rooms);
+    return [];
+  }
+  
+  try {
+    return rooms.map(room => {
+      if (!room) return null;
+      
+      return {
+        ...room,
+        members: Array.isArray(room.members) ? room.members.map(member => {
+          if (!member) return null;
+          
+          return {
+            ...member,
+            points: member.points && typeof member.points === 'object' 
+              ? Object.entries(member.points).reduce((acc, [key, value]) => {
+                  acc[key.replace(/_/g, '/')] = value;
+                  return acc;
+                }, {})
+              : {}
+          };
+        }).filter(Boolean) : []
+      };
+    }).filter(Boolean);
+  } catch (error) {
+    console.error('convertFromFirebase error:', error);
+    return [];
+  }
+};
 
 // Sample data for rooms
 const initialRooms = [
@@ -53,10 +123,7 @@ const initialRooms = [
 const RoomManagementSystem = () => {
   const [currentView, setCurrentView] = useState('home');
   const [selectedRoom, setSelectedRoom] = useState(null);
-  const [rooms, setRooms] = useState(() => {
-    const saved = localStorage.getItem('roomManagementData');
-    return saved ? JSON.parse(saved) : initialRooms;
-  });
+  const [rooms, setRooms] = useState(initialRooms);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMember, setSelectedMember] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -112,13 +179,45 @@ useEffect(() => {
   return () => window.removeEventListener('keydown', handleKeyPress);
 }, []);
   // Auto-save to localStorage whenever rooms change
-  useEffect(() => {
-    localStorage.setItem('roomManagementData', JSON.stringify(rooms));
-  }, [rooms]);
+  
   useEffect(() => {
   const currentCount = parseInt(localStorage.getItem('visitCount') || '0');
   localStorage.setItem('visitCount', (currentCount + 1).toString());
 }, []);
+// Đọc dữ liệu từ Firebase (real-time sync)
+useEffect(() => {
+  const roomsRef = ref(database, 'rooms');
+  
+  const unsubscribe = onValue(roomsRef, (snapshot) => {
+    const data = snapshot.val();
+    if (data && Array.isArray(data)) {
+      const converted = convertFromFirebase(data);
+      if (converted && converted.length > 0) {
+        setRooms(converted);
+      }
+    } else if (!data) {
+      // Nếu Firebase trống, khởi tạo dữ liệu mặc định
+      const firebaseData = convertToFirebase(initialRooms);
+      set(ref(database, 'rooms'), firebaseData);
+    }
+  });
+
+  return () => unsubscribe();
+}, []);
+
+// Lưu dữ liệu lên Firebase khi thay đổi
+useEffect(() => {
+  if (!rooms || rooms.length === 0) return;
+  
+  const roomsRef = ref(database, 'rooms');
+  const firebaseData = convertToFirebase(rooms);
+  
+  if (firebaseData && firebaseData.length > 0) {
+    set(roomsRef, firebaseData).catch(error => {
+      console.error('Firebase set error:', error);
+    });
+  }
+}, [rooms]);
 
   const currentDate = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -1110,8 +1209,8 @@ workbook.SheetNames.slice(1).forEach(sheetName => {
                   </div>
                 </div>
 
-                {rooms.map(room => (
-                  <div key={room.id} className="border rounded-lg p-4 bg-gray-50">
+                {Array.isArray(rooms) && rooms.map(room => (
+                    <div key={room.id} className="border rounded-lg p-4 bg-gray-50">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <span className="text-4xl">{room.icon}</span>
