@@ -1330,7 +1330,11 @@ const handleAdminLogin = async () => {
                           className="flex items-center gap-2 bg-teal-600 text-white px-3 py-2 rounded-lg hover:bg-teal-700 text-sm"
                           title="Xem giao dịch"
                         >
+<<<<<<< HEAD
                           💰 Giao dịch ({(room.transactions || {}) ? Object.values((room.transactions || {})).flat().length : 0})
+=======
+                          💰 Giao dịch ({(room.transactions && Object.values(room.transactions).flat().length) || 0})
+>>>>>>> 73f756f (Fix Firebase 4)
                         </button>
                         <button
                           onClick={() => handleEditRoom(room)}
