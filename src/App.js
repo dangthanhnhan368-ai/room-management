@@ -5,6 +5,7 @@ import { database } from './firebase';
 import { ref, set, onValue, update } from 'firebase/database';
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+import { ref, set, get } from 'firebase/database';
 
 // Helper functions để chuyển đổi dữ liệu cho Firebase
 const convertToFirebase = (rooms) => {
@@ -203,23 +204,23 @@ useEffect(() => {
   return () => unsubscribe();
 }, []);
 // Đọc dữ liệu từ Firebase
-useEffect(() => {
-  const roomsRef = ref(database, 'rooms');
+//useEffect(() => {
+  //const roomsRef = ref(database, 'rooms');
   
-  const unsubscribe = onValue(roomsRef, (snapshot) => {
-    const data = snapshot.val();
-    if (data && Array.isArray(data)) {
-      setIsLoadingFromFirebase(true); // Đánh dấu đang load
-      const converted = convertFromFirebase(data);
-      if (converted && converted.length > 0) {
-        setRooms(converted);
-      }
-      setTimeout(() => setIsLoadingFromFirebase(false), 100);
-    }
-  });
+  //const unsubscribe = onValue(roomsRef, (snapshot) => {
+    //const data = snapshot.val();
+    //if (data && Array.isArray(data)) {
+     // setIsLoadingFromFirebase(true); // Đánh dấu đang load
+     // const converted = convertFromFirebase(data);
+      //if (converted && converted.length > 0) {
+     //   setRooms(converted);
+     // }
+    //  setTimeout(() => setIsLoadingFromFirebase(false), 100);
+   // }
+  //});
 
-  return () => unsubscribe();
-}, []);
+ // return () => unsubscribe();
+//}, []);
 
 // Lưu dữ liệu lên Firebase
 useEffect(() => {
