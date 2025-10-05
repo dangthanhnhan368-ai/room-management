@@ -2,11 +2,9 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Search, ArrowLeft, Home, Settings, Upload, Plus, Edit2, Trash2, Users, Download, FileJson } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { database } from './firebase';
-import { ref, set, onValue, update } from 'firebase/database';
+import { ref, set, onValue, get } from 'firebase/database';
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { ref, set, get } from 'firebase/database';
-
 // Helper functions để chuyển đổi dữ liệu cho Firebase
 const convertToFirebase = (rooms) => {
   if (!rooms || !Array.isArray(rooms)) {
@@ -203,24 +201,27 @@ useEffect(() => {
   
   return () => unsubscribe();
 }, []);
-// Đọc dữ liệu từ Firebase
-//useEffect(() => {
-  //const roomsRef = ref(database, 'rooms');
+// Đọc dữ liệu từ Firebase (chỉ 1 lần khi mount)
+useEffect(() => {
+  const roomsRef = ref(database, 'rooms');
   
-  //const unsubscribe = onValue(roomsRef, (snapshot) => {
-    //const data = snapshot.val();
-    //if (data && Array.isArray(data)) {
-     // setIsLoadingFromFirebase(true); // Đánh dấu đang load
-     // const converted = convertFromFirebase(data);
-      //if (converted && converted.length > 0) {
-     //   setRooms(converted);
-     // }
-    //  setTimeout(() => setIsLoadingFromFirebase(false), 100);
-   // }
-  //});
-
- // return () => unsubscribe();
-//}, []);
+  get(roomsRef).then((snapshot) => {
+    const data = snapshot.val();
+    console.log('🔵 Loaded from Firebase:', data ? `${data.length} rooms` : 'null');
+    
+    if (data && Array.isArray(data)) {
+      setIsLoadingFromFirebase(true);
+      const converted = convertFromFirebase(data);
+      if (converted && converted.length > 0) {
+        console.log('🔵 Setting rooms:', converted.length);
+        setRooms(converted);
+      }
+      setTimeout(() => setIsLoadingFromFirebase(false), 500);
+    }
+  }).catch(error => {
+    console.error('Firebase read error:', error);
+  });
+}, []); // Chỉ chạy 1 lần khi mount
 
 // Lưu dữ liệu lên Firebase
 useEffect(() => {
@@ -1208,18 +1209,21 @@ const handleAdminLogin = async () => {
                     <Home size={18} />
                     Trang chủ
                   </button>
- <button
-  onClick={() => {
+<button
+  onClick={async () => {
     const roomsRef = ref(database, 'rooms');
-    const firebaseData = convertToFirebase(rooms);
-    set(roomsRef, firebaseData)
-      .then(() => alert('Đã lưu lên Firebase!'))
-      .catch(error => alert('Lỗi: ' + error.message));
+    const snapshot = await get(roomsRef);
+    const data = snapshot.val();
+    if (data && Array.isArray(data)) {
+      const converted = convertFromFirebase(data);
+      setRooms(converted);
+      alert('Đã tải lại dữ liệu từ Firebase!');
+    }
   }}
-  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+  className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700"
 >
-  💾 Lưu Data
-</button>             
+  🔄 Tải lại
+</button>            
 <button
   onClick={async () => {
     try {
