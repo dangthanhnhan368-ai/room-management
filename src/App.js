@@ -788,7 +788,7 @@ const handleAdminLogin = async () => {
 
   const getAllTransactionsFlat = (room) => {
     const allTransactions = [];
-    Object.entries((room.transactions || {})).forEach(([memberId, transactions]) => {
+    Object.entries(room.transactions).forEach(([memberId, transactions]) => {
       const member = room.members.find(m => m.id === parseInt(memberId));
       transactions.forEach(trans => {
         allTransactions.push({
@@ -974,7 +974,7 @@ const handleAdminLogin = async () => {
 
     // Sheet 2+: Lịch sử từng thành viên (tên sheet = ID)
     room.members.forEach(member => {
-      const transactions = (room.transactions || {})[member.id] || [];
+      const transactions = room.transactions[member.id] || [];
       if (transactions.length > 0) {
         const transData = transactions.map(trans => ({
           'Ngày': trans.date,
@@ -1211,17 +1211,7 @@ const handleAdminLogin = async () => {
                     <Home size={18} />
                     Trang chủ
                   </button>
-                  <button
-                    onClick={() => {
-                    setCurrentView('home');
-                    setIsAdminAuthenticated(false);
-                    setAdminPassword('');
-                  }}
-                className="flex items-center gap-2 bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300"
->
-  <Home size={18} />
-  Trang chủ
-</button>
+              
 <button
   onClick={async () => {
     try {
@@ -1241,23 +1231,6 @@ const handleAdminLogin = async () => {
 </button>
                 </div>
               </div>
-
-              <div className="space-y-6">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <FileJson size={20} className="text-blue-600" />
-                    <h3 className="font-semibold text-blue-900">Trạng thái lưu trữ</h3>
-                  </div>
-                  <p className="text-sm text-blue-800">
-                    ✅ Dữ liệu được tự động lưu vào trình duyệt (LocalStorage)
-                  </p>
-                  <p className="text-sm text-blue-800">
-                    💾 Tổng số Room: <span className="font-semibold">{rooms.length}</span>
-                  </p>
-                  <p className="text-xs text-blue-600 mt-2">
-                    💡 Mẹo: Sử dụng "Xuất Data" để backup dữ liệu định kỳ!
-                  </p>
-                </div>
   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
   <div className="flex items-center gap-2 mb-2">
     <FileJson size={20} className="text-blue-600" />
@@ -1330,11 +1303,7 @@ const handleAdminLogin = async () => {
                           className="flex items-center gap-2 bg-teal-600 text-white px-3 py-2 rounded-lg hover:bg-teal-700 text-sm"
                           title="Xem giao dịch"
                         >
-<<<<<<< HEAD
-                          💰 Giao dịch ({(room.transactions || {}) ? Object.values((room.transactions || {})).flat().length : 0})
-=======
                           💰 Giao dịch ({(room.transactions && Object.values(room.transactions).flat().length) || 0})
->>>>>>> 73f756f (Fix Firebase 4)
                         </button>
                         <button
                           onClick={() => handleEditRoom(room)}
@@ -2165,8 +2134,8 @@ const handleAdminLogin = async () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {selected(room.transactions || {})[selectedMember.id]?.length > 0 ? (
-                    selected(room.transactions || {})[selectedMember.id].map((trans, index) => (
+                  {selectedRoom.transactions[selectedMember.id]?.length > 0 ? (
+                    selectedRoom.transactions[selectedMember.id].map((trans, index) => (
                       <tr key={index} className="border-b hover:bg-gray-50">
                         <td className="px-3 py-2 text-sm">{trans.date}</td>
                         <td className="px-3 py-2 text-sm">{trans.description}</td>
