@@ -788,7 +788,7 @@ const handleAdminLogin = async () => {
 
   const getAllTransactionsFlat = (room) => {
     const allTransactions = [];
-    Object.entries(room.transactions).forEach(([memberId, transactions]) => {
+    Object.entries((room.transactions || {})).forEach(([memberId, transactions]) => {
       const member = room.members.find(m => m.id === parseInt(memberId));
       transactions.forEach(trans => {
         allTransactions.push({
@@ -974,7 +974,7 @@ const handleAdminLogin = async () => {
 
     // Sheet 2+: Lịch sử từng thành viên (tên sheet = ID)
     room.members.forEach(member => {
-      const transactions = room.transactions[member.id] || [];
+      const transactions = (room.transactions || {})[member.id] || [];
       if (transactions.length > 0) {
         const transData = transactions.map(trans => ({
           'Ngày': trans.date,
@@ -1330,7 +1330,7 @@ const handleAdminLogin = async () => {
                           className="flex items-center gap-2 bg-teal-600 text-white px-3 py-2 rounded-lg hover:bg-teal-700 text-sm"
                           title="Xem giao dịch"
                         >
-                          💰 Giao dịch ({Object.values(room.transactions).flat().length})
+                          💰 Giao dịch ({(room.transactions || {}) ? Object.values((room.transactions || {})).flat().length : 0})
                         </button>
                         <button
                           onClick={() => handleEditRoom(room)}
@@ -2161,8 +2161,8 @@ const handleAdminLogin = async () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedRoom.transactions[selectedMember.id]?.length > 0 ? (
-                    selectedRoom.transactions[selectedMember.id].map((trans, index) => (
+                  {selected(room.transactions || {})[selectedMember.id]?.length > 0 ? (
+                    selected(room.transactions || {})[selectedMember.id].map((trans, index) => (
                       <tr key={index} className="border-b hover:bg-gray-50">
                         <td className="px-3 py-2 text-sm">{trans.date}</td>
                         <td className="px-3 py-2 text-sm">{trans.description}</td>
