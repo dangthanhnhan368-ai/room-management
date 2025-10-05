@@ -3,6 +3,8 @@ import { Search, ArrowLeft, Home, Settings, Upload, Plus, Edit2, Trash2, Users, 
 import * as XLSX from 'xlsx';
 import { database } from './firebase';
 import { ref, set, onValue, update } from 'firebase/database';
+import { auth } from './firebase';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 
 // Helper functions để chuyển đổi dữ liệu cho Firebase
 const convertToFirebase = (rooms) => {
@@ -129,6 +131,7 @@ const RoomManagementSystem = () => {
   const [showModal, setShowModal] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [isFirebaseAuthenticated, setIsFirebaseAuthenticated] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [showTransactionForm, setShowTransactionForm] = useState(false);
@@ -184,6 +187,20 @@ useEffect(() => {
   const currentCount = parseInt(localStorage.getItem('visitCount') || '0');
   localStorage.setItem('visitCount', (currentCount + 1).toString());
 }, []);
+// Kiểm tra trạng thái đăng nhập Firebase
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    if (user) {
+      console.log('Firebase user logged in:', user.email);
+      setIsFirebaseAuthenticated(true);
+    } else {
+      console.log('Firebase user logged out');
+      setIsFirebaseAuthenticated(false);
+    }
+  });
+  
+  return () => unsubscribe();
+}, []);
 // Đọc dữ liệu từ Firebase (real-time sync)
 useEffect(() => {
   const roomsRef = ref(database, 'rooms');
@@ -205,9 +222,15 @@ useEffect(() => {
   return () => unsubscribe();
 }, []);
 
-// Lưu dữ liệu lên Firebase khi thay đổi
+// Lưu dữ liệu lên Firebase khi thay đổi (chỉ khi đã đăng nhập)
 useEffect(() => {
   if (!rooms || rooms.length === 0) return;
+  
+  // Chỉ lưu nếu đã đăng nhập Firebase
+  if (!isFirebaseAuthenticated) {
+    console.log('Chưa đăng nhập Firebase, không lưu dữ liệu');
+    return;
+  }
   
   const roomsRef = ref(database, 'rooms');
   const firebaseData = convertToFirebase(rooms);
@@ -215,9 +238,13 @@ useEffect(() => {
   if (firebaseData && firebaseData.length > 0) {
     set(roomsRef, firebaseData).catch(error => {
       console.error('Firebase set error:', error);
+      
+      if (error.code === 'PERMISSION_DENIED') {
+        alert('⚠️ Bạn cần đăng nhập Admin để chỉnh sửa dữ liệu!');
+      }
     });
   }
-}, [rooms]);
+}, [rooms, isFirebaseAuthenticated]);
 
   const currentDate = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -357,14 +384,35 @@ workbook.SheetNames.slice(1).forEach(sheetName => {
   reader.readAsArrayBuffer(file);
 };
 
-  const handleAdminLogin = () => {
-    if (adminPassword === 'admin112233') {
+const handleAdminLogin = async () => {
+  if (adminPassword === 'admin112233') {
+    try {
+      // Đăng nhập Firebase với email/password admin
+      await signInWithEmailAndPassword(
+        auth, 
+        'admin@roommanagement.com', 
+        'Admin@123456'
+      );
+      
       setIsAdminAuthenticated(true);
       setCurrentView('admin');
-    } else {
-      alert('Mật khẩu không đúng!');
+      alert('Đăng nhập thành công!');
+    } catch (error) {
+      console.error('Firebase login error:', error);
+      
+      // Hiển thị lỗi cụ thể
+      if (error.code === 'auth/invalid-credential') {
+        alert('Thông tin đăng nhập không đúng!');
+      } else if (error.code === 'auth/network-request-failed') {
+        alert('Lỗi kết nối mạng!');
+      } else {
+        alert('Lỗi đăng nhập: ' + error.message);
+      }
     }
-  };
+  } else {
+    alert('Mật khẩu không đúng!');
+  }
+};
 
   const calculatePoints = (price, rule) => {
     for (let i = 0; i < rule.length; i++) {
@@ -1163,6 +1211,34 @@ workbook.SheetNames.slice(1).forEach(sheetName => {
                     <Home size={18} />
                     Trang chủ
                   </button>
+                  <button
+                    onClick={() => {
+                    setCurrentView('home');
+                    setIsAdminAuthenticated(false);
+                    setAdminPassword('');
+                  }}
+                className="flex items-center gap-2 bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300"
+>
+  <Home size={18} />
+  Trang chủ
+</button>
+<button
+  onClick={async () => {
+    try {
+      await signOut(auth);
+      setCurrentView('home');
+      setIsAdminAuthenticated(false);
+      setAdminPassword('');
+      alert('Đã đăng xuất thành công!');
+    } catch (error) {
+      console.error('Logout error:', error);
+      alert('Lỗi khi đăng xuất: ' + error.message);
+    }
+  }}
+  className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
+>
+  Đăng xuất
+</button>
                 </div>
               </div>
 
@@ -1182,6 +1258,23 @@ workbook.SheetNames.slice(1).forEach(sheetName => {
                     💡 Mẹo: Sử dụng "Xuất Data" để backup dữ liệu định kỳ!
                   </p>
                 </div>
+  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+  <div className="flex items-center gap-2 mb-2">
+    <FileJson size={20} className="text-blue-600" />
+    <h3 className="font-semibold text-blue-900">Trạng thái hệ thống</h3>
+  </div>
+  <p className="text-sm text-blue-800">
+    🔐 Firebase Auth: <span className={`font-semibold ${isFirebaseAuthenticated ? 'text-green-600' : 'text-red-600'}`}>
+      {isFirebaseAuthenticated ? 'Đã đăng nhập' : 'Chưa đăng nhập'}
+    </span>
+  </p>
+  <p className="text-sm text-blue-800">
+    💾 Tổng số Room: <span className="font-semibold">{rooms.length}</span>
+  </p>
+  <p className="text-xs text-blue-600 mt-2">
+    💡 Chỉ Admin đã đăng nhập mới có thể chỉnh sửa dữ liệu
+  </p>
+</div>
 
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-gray-800">Quản lý Rooms</h2>
