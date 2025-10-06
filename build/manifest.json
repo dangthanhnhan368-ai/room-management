@@ -1,6 +1,6 @@
 {
-  "short_name": "VN Return",
-  "name": "Hệ thống Quản lý Room",
+  "short_name": "React App",
+  "name": "Create React App Sample",
   "icons": [
     {
       "src": "favicon.ico",

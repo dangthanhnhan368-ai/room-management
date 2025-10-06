@@ -924,22 +924,38 @@ const handleAdminLogin = async () => {
     }
   };
 
-  const handleUploadQR = (event, roomId) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  const handleUploadQR = async (event, roomId) => {
+  const file = event.target.files[0];
+  if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setRooms(rooms.map(r => 
-        r.id === roomId 
-          ? { ...r, qrCode: e.target.result }
-          : r
-      ));
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const qrCodeData = e.target.result;
+    
+    // Update state
+    const updatedRooms = rooms.map(r => 
+      r.id === roomId 
+        ? { ...r, qrCode: qrCodeData }
+        : r
+    );
+    setRooms(updatedRooms);
+    
+    // Lưu trực tiếp lên Firebase
+    try {
+      const roomsRef = ref(database, 'rooms');
+      const firebaseData = convertToFirebase(updatedRooms);
+      await set(roomsRef, firebaseData);
+      console.log('✅ QR Code saved to Firebase');
       alert('Upload QR Code thành công!');
-      setShowQRUpload(null);
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('❌ Error saving QR to Firebase:', error);
+      alert('Lỗi khi lưu QR Code: ' + error.message);
+    }
+    
+    setShowQRUpload(null);
   };
+  reader.readAsDataURL(file);
+};
 
   const handleRemoveQR = (roomId) => {
     const confirm = window.confirm('Bạn có chắc chắn muốn xóa QR Code?');
@@ -1165,7 +1181,7 @@ const handleAdminLogin = async () => {
 <div className="text-center mt-8">
   <p className="text-gray-600 text-sm">
     👁️ Lượt truy cập: <span className="font-semibold text-blue-600">{visitCount.toLocaleString('vi-VN')}</span>
-    <span className="text-xs text-gray-400 ml-2">(tổng tất cả thiết bị)</span>
+
   </p>
 </div>
         </div>

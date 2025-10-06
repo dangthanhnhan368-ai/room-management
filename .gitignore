@@ -1,5 +1,10 @@
-node_modules/
-build/
-.DS_Store
-.env.local
+# Firebase config
+firebase.js
+src/firebase.js
+
+# Environment variables
 .env
+.env.local
+
+# Dependencies
+node_modules/
