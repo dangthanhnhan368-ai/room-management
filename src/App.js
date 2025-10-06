@@ -124,7 +124,7 @@ const initialRooms = [
 const RoomManagementSystem = () => {
   const [currentView, setCurrentView] = useState('home');
   const [selectedRoom, setSelectedRoom] = useState(null);
-  const [rooms, setRooms] = useState(initialRooms);
+  const [rooms, setRooms] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMember, setSelectedMember] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -132,6 +132,7 @@ const RoomManagementSystem = () => {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [isFirebaseAuthenticated, setIsFirebaseAuthenticated] = useState(false);
   const [isLoadingFromFirebase, setIsLoadingFromFirebase] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [showTransactionForm, setShowTransactionForm] = useState(false);
@@ -215,13 +216,25 @@ useEffect(() => {
       if (converted && converted.length > 0) {
         console.log('🔵 Setting rooms:', converted.length);
         setRooms(converted);
+      } else {
+        // Nếu Firebase trống, dùng initialRooms
+        setRooms(initialRooms);
       }
       setTimeout(() => setIsLoadingFromFirebase(false), 500);
+    } else {
+      // Nếu Firebase không có dữ liệu, dùng initialRooms
+      setRooms(initialRooms);
     }
+    
+    // Tắt loading sau khi load xong
+    setIsLoading(false);
   }).catch(error => {
     console.error('Firebase read error:', error);
+    // Nếu lỗi, dùng initialRooms và tắt loading
+    setRooms(initialRooms);
+    setIsLoading(false);
   });
-}, []); // Chỉ chạy 1 lần khi mount
+}, []);
 
 // Lưu dữ liệu lên Firebase
 useEffect(() => {
@@ -1075,6 +1088,17 @@ const handleAdminLogin = async () => {
   };
 
   if (currentView === 'home') {
+  // Hiển thị loading khi đang tải dữ liệu
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
     return (
       <div className="min-h-screen bg-gray-50 p-4 md:p-8">
         <div className="max-w-6xl mx-auto">
