@@ -145,7 +145,8 @@ const RoomManagementSystem = () => {
     receiverId: '',
     price: '',
     description: '',
-    manualPoints: ''
+    manualPoints: '',
+    isAddPointTransaction: false
   });
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [memberForm, setMemberForm] = useState({
@@ -503,29 +504,49 @@ const handleAdminLogin = async () => {
     return null;
   };
 
-  const handleAddTransaction = () => {
-    const { roomId, date, delivererId, receiverId, price, description, manualPoints } = transactionForm;
-    
-    if (!roomId || !delivererId || !receiverId || !price || !description) {
-      alert('Vui lòng điền đầy đủ thông tin!');
+const handleAddTransaction = () => {
+  const { roomId, date, delivererId, receiverId, price, description, manualPoints, isAddPointTransaction } = transactionForm;
+  
+  if (!roomId || !receiverId || !price || !description) {
+    alert('Vui lòng điền đầy đủ thông tin!');
+    return;
+  }
+
+  if (!isAddPointTransaction && !delivererId) {
+    alert('Vui lòng chọn người giao!');
+    return;
+  }
+
+  if (isAddPointTransaction && receiverId === '0') {
+    alert('Người nhận không thể là Hệ thống (ID: 0) trong giao dịch cộng điểm!');
+    return;
+  }
+
+  if (!isAddPointTransaction && delivererId === receiverId) {
+    alert('Người giao và người nhận không thể là cùng một người!');
+    return;
+  }
+
+  const priceNum = parseFloat(price);
+  if (isNaN(priceNum) || priceNum <= 0) {
+    alert('Giá trị không hợp lệ!');
+    return;
+  }
+
+  const room = rooms.find(r => r.id === roomId);
+  if (!room) return;
+
+  let points;
+  let actualDelivererId = isAddPointTransaction ? 0 : parseInt(delivererId);
+  
+  if (isAddPointTransaction) {
+    points = Math.floor(priceNum / 100000);
+    if (points === 0) {
+      alert('Giá trị tối thiểu cho giao dịch cộng điểm là 100,000 VND!');
       return;
     }
-
-    if (delivererId === receiverId) {
-      alert('Người giao và người nhận không thể là cùng một người!');
-      return;
-    }
-
-    const priceNum = parseFloat(price);
-    if (isNaN(priceNum) || priceNum <= 0) {
-      alert('Giá trị không hợp lệ!');
-      return;
-    }
-
-    const room = rooms.find(r => r.id === roomId);
-    if (!room) return;
-
-    let points = calculatePoints(priceNum, room.rule);
+  } else {
+    points = calculatePoints(priceNum, room.rule);
     
     if (points === null) {
       if (!manualPoints) {
@@ -538,88 +559,93 @@ const handleAdminLogin = async () => {
         return;
       }
     }
+  }
 
-    const deliverer = room.members.find(m => m.id === parseInt(delivererId));
-    const receiver = room.members.find(m => m.id === parseInt(receiverId));
+  const deliverer = room.members.find(m => m.id === actualDelivererId);
+  const receiver = room.members.find(m => m.id === parseInt(receiverId));
 
-    if (!deliverer || !receiver) {
-      alert('Không tìm thấy thành viên!');
-      return;
-    }
+  if (!deliverer || !receiver) {
+    alert('Không tìm thấy thành viên!');
+    return;
+  }
 
-    const dateObj = new Date(date);
-    const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+  const dateObj = new Date(date);
+  const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
 
-    const delivererTransaction = {
-      date: formattedDate,
-      description: description,
-      price: priceNum,
-      role: 'Giao',
-      partner: receiver.name,
-      points: points
-    };
-
-    const receiverTransaction = {
-      date: formattedDate,
-      description: description,
-      price: priceNum,
-      role: 'Nhận',
-      partner: deliverer.name,
-      points: -points
-    };
-
-    setRooms(rooms.map(r => {
-      if (r.id !== roomId) return r;
-
-      const newTransactions = { ...r.transactions };
-      if (!newTransactions[deliverer.id]) newTransactions[deliverer.id] = [];
-      if (!newTransactions[receiver.id]) newTransactions[receiver.id] = [];
-      
-      newTransactions[deliverer.id] = [...newTransactions[deliverer.id], delivererTransaction];
-      newTransactions[receiver.id] = [...newTransactions[receiver.id], receiverTransaction];
-
-      const newMembers = r.members.map(m => {
-        if (m.id === deliverer.id) {
-          return {
-            ...m,
-            points: {
-              ...m.points,
-              [dateColumns[2]]: (m.points[dateColumns[2]] || 0) + points
-            }
-          };
-        }
-        if (m.id === receiver.id) {
-          return {
-            ...m,
-            points: {
-              ...m.points,
-              [dateColumns[2]]: (m.points[dateColumns[2]] || 0) - points
-            }
-          };
-        }
-        return m;
-      });
-
-      return {
-        ...r,
-        transactions: newTransactions,
-        members: newMembers
-      };
-    }));
-
-    setTransactionForm({
-      roomId: null,
-      date: new Date().toISOString().split('T')[0],
-      delivererId: '',
-      receiverId: '',
-      price: '',
-      description: '',
-      manualPoints: ''
-    });
-    setShowTransactionForm(false);
-    
-    alert('Thêm giao dịch thành công!');
+  const delivererTransaction = {
+    date: formattedDate,
+    description: description,
+    price: priceNum,
+    role: isAddPointTransaction ? 'Cộng điểm' : 'Giao',
+    partner: receiver.name,
+    points: isAddPointTransaction ? -points : points
   };
+
+  const receiverTransaction = {
+    date: formattedDate,
+    description: description,
+    price: priceNum,
+    role: isAddPointTransaction ? 'Nhận cộng điểm' : 'Nhận',
+    partner: deliverer.name,
+    points: points
+  };
+
+  setRooms(rooms.map(r => {
+    if (r.id !== roomId) return r;
+
+    const newTransactions = { ...r.transactions };
+    if (!newTransactions[deliverer.id]) newTransactions[deliverer.id] = [];
+    if (!newTransactions[receiver.id]) newTransactions[receiver.id] = [];
+    
+    newTransactions[deliverer.id] = [...newTransactions[deliverer.id], delivererTransaction];
+    newTransactions[receiver.id] = [...newTransactions[receiver.id], receiverTransaction];
+
+    const newMembers = r.members.map(m => {
+      if (m.id === deliverer.id && !isAddPointTransaction) {
+        return {
+          ...m,
+          points: {
+            ...m.points,
+            [dateColumns[2]]: (m.points[dateColumns[2]] || 0) + points
+          }
+        };
+      }
+      if (m.id === receiver.id) {
+        return {
+          ...m,
+          points: {
+            ...m.points,
+            [dateColumns[2]]: (m.points[dateColumns[2]] || 0) + points
+          }
+        };
+      }
+      return m;
+    });
+
+    return {
+      ...r,
+      transactions: newTransactions,
+      members: newMembers
+    };
+  }));
+
+  setTransactionForm({
+    roomId: null,
+    date: new Date().toISOString().split('T')[0],
+    delivererId: '',
+    receiverId: '',
+    price: '',
+    description: '',
+    manualPoints: '',
+    isAddPointTransaction: false
+  });
+  setShowTransactionForm(false);
+  
+  alert(isAddPointTransaction 
+    ? `Đã cộng ${points} điểm cho ${receiver.name}!` 
+    : 'Thêm giao dịch thành công!'
+  );
+};
 
   const handleAddMember = () => {
     const { roomId, id, name, deadline, note, initialPoints } = memberForm;
@@ -1618,7 +1644,35 @@ const handleAdminLogin = async () => {
                     ))}
                   </select>
                 </div>
-
+                    <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={transactionForm.isAddPointTransaction}
+                        onChange={(e) => {
+                          const isChecked = e.target.checked;
+                          const room = rooms.find(r => r.id === transactionForm.roomId);
+                          const systemMember = room?.members.find(m => m.id === 0);
+                          
+                          setTransactionForm({
+                            ...transactionForm, 
+                            isAddPointTransaction: isChecked,
+                            delivererId: isChecked && systemMember ? '0' : '',
+                          });
+                        }}
+                        className="w-5 h-5 text-purple-600"
+                        disabled={!transactionForm.roomId}
+                      />
+                      <div className="flex-1">
+                        <span className="text-sm font-semibold text-purple-900">
+                          Giao dịch cộng điểm
+                        </span>
+                        <p className="text-xs text-purple-700 mt-1">
+                          Người giao = ID:0 (hệ thống), quy tắc: 100,000 VND = 1 điểm, người nhận được CỘNG điểm
+                        </p>
+                      </div>
+                    </label>
+                  </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Ngày giao dịch <span className="text-red-500">*</span>
@@ -1631,24 +1685,34 @@ const handleAdminLogin = async () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Người Giao (Deliverer) <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={transactionForm.delivererId}
-                    onChange={(e) => setTransactionForm({...transactionForm, delivererId: e.target.value})}
-                    disabled={!transactionForm.roomId}
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                  >
-                    <option value="">-- Chọn người giao --</option>
-                    {transactionForm.roomId && rooms.find(r => r.id === transactionForm.roomId)?.members.map(member => (
-                      <option key={member.id} value={member.id}>
-                        {member.name} (ID: {member.id})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {!transactionForm.isAddPointTransaction && (
+  <div>
+    <label className="block text-sm font-semibold text-gray-700 mb-2">
+      Người Giao (Deliverer) <span className="text-red-500">*</span>
+    </label>
+    <select
+      value={transactionForm.delivererId}
+      onChange={(e) => setTransactionForm({...transactionForm, delivererId: e.target.value})}
+      disabled={!transactionForm.roomId}
+      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+    >
+      <option value="">-- Chọn người giao --</option>
+      {transactionForm.roomId && rooms.find(r => r.id === transactionForm.roomId)?.members.map(member => (
+        <option key={member.id} value={member.id}>
+          {member.name} (ID: {member.id})
+        </option>
+      ))}
+    </select>
+  </div>
+)}
+
+{transactionForm.isAddPointTransaction && (
+  <div className="bg-purple-100 border border-purple-300 rounded-lg p-3">
+    <p className="text-sm text-purple-800">
+      <strong>Người giao:</strong> Hệ thống (ID: 0)
+    </p>
+  </div>
+)}
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1683,21 +1747,30 @@ const handleAdminLogin = async () => {
                     placeholder="Nhập giá trị giao dịch..."
                     className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
-                  {transactionForm.price && transactionForm.roomId && (
-                    (() => {
-                      const room = rooms.find(r => r.id === transactionForm.roomId);
-                      const points = room ? calculatePoints(parseFloat(transactionForm.price), room.rule) : null;
-                      return points !== null ? (
-                        <p className="text-sm text-green-600 font-semibold mt-1">
-                          ✓ Điểm tự động: {points} điểm
-                        </p>
-                      ) : (
-                        <p className="text-sm text-orange-600 font-semibold mt-1">
-                          ⚠️ Giá trị vượt quy tắc! Cần nhập điểm thủ công bên dưới.
-                        </p>
-                      );
-                    })()
-                  )}
+                 {transactionForm.price && transactionForm.roomId && (
+  (() => {
+    if (transactionForm.isAddPointTransaction) {
+      const pointsFromPrice = Math.floor(parseFloat(transactionForm.price) / 100000);
+      return (
+        <p className="text-sm text-purple-600 font-semibold mt-1">
+          Điểm cộng: {pointsFromPrice} điểm (100,000 VND = 1 điểm)
+        </p>
+      );
+    } else {
+      const room = rooms.find(r => r.id === transactionForm.roomId);
+      const points = room ? calculatePoints(parseFloat(transactionForm.price), room.rule) : null;
+      return points !== null ? (
+        <p className="text-sm text-green-600 font-semibold mt-1">
+          ✓ Điểm tự động: {points} điểm
+        </p>
+      ) : (
+        <p className="text-sm text-orange-600 font-semibold mt-1">
+          ⚠️ Giá trị vượt quy tắc! Cần nhập điểm thủ công bên dưới.
+        </p>
+      );
+    }
+  })()
+)}
                 </div>
 
                 {transactionForm.price && transactionForm.roomId && 
