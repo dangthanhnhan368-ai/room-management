@@ -185,8 +185,16 @@ useEffect(() => {
   window.addEventListener('keydown', handleKeyPress);
   return () => window.removeEventListener('keydown', handleKeyPress);
 }, []);
-  // Auto-save to localStorage whenever rooms change
-
+  
+// Hiển thị QR
+useEffect(() => {
+  if (currentView === 'room' && selectedRoom) {
+    const updatedRoom = rooms.find(r => r.id === selectedRoom.id);
+    if (updatedRoom) {
+      setSelectedRoom(updatedRoom);
+    }
+  }
+}, [rooms, currentView]);
   
 // Tăng visit counter trên Firebase (1 lần mỗi session)
 useEffect(() => {
@@ -2450,11 +2458,26 @@ const handleAdminLogin = async () => {
           )}
         </div>
 
-        <div className="fixed bottom-4 right-4 bg-white p-2 rounded-lg shadow-lg">
-          <div className="w-24 h-24 bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-            QR Zalo
-          </div>
-        </div>
+        {/* Hiển thị QR Code của room - Đặt ở cuối return của room view */}
+{selectedRoom?.qrCode && (
+  <div className="fixed bottom-4 right-4 bg-white p-3 rounded-lg shadow-xl border-2 border-blue-500">
+    <img 
+      src={selectedRoom.qrCode} 
+      alt="QR Code Zalo" 
+      className="w-32 h-32 object-contain"
+    />
+    <p className="text-center text-xs text-gray-600 mt-1">QR Zalo</p>
+  </div>
+)}
+
+{/* Nếu chưa có QR, hiển thị placeholder */}
+{!selectedRoom?.qrCode && (
+  <div className="fixed bottom-4 right-4 bg-white p-2 rounded-lg shadow-lg">
+    <div className="w-24 h-24 bg-gray-200 flex items-center justify-center text-xs text-gray-500">
+      QR Zalo
+    </div>
+  </div>
+)}
       </div>
 
       {showModal && selectedMember && (
