@@ -80,6 +80,7 @@ const initialRooms = [
     name: '[1-1 RETURN] ROOM LỊCH',
     icon: '🏠',
     qrCode: null,
+    password: '',
     rule: [
       { min: 500000, max: 1000000, points: 0.5 },
       { min: 1000000, max: 2000000, points: 1 },
@@ -159,6 +160,7 @@ const RoomManagementSystem = () => {
   const [roomForm, setRoomForm] = useState({
     name: '',
     icon: '🏠',
+    password: '',
     rule: [
       { min: 500000, max: 1000000, points: 0.5 },
       { min: 1000000, max: 2000000, points: 1 },
@@ -175,6 +177,11 @@ const RoomManagementSystem = () => {
   const [showQRUpload, setShowQRUpload] = useState(null);
   const [showMemberHistory, setShowMemberHistory] = useState(null);
   const [editingHistoryTransaction, setEditingHistoryTransaction] = useState(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(null);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  //const [showMemberHistory, setShowMemberHistory] = useState(null);
+  //const [editingHistoryTransaction, setEditingHistoryTransaction] = useState(null);
 // Admin shortcut: Ctrl + Shift + X
 useEffect(() => {
   const handleKeyPress = (e) => {
@@ -336,12 +343,35 @@ useEffect(() => {
     setShowModal(true);
   };
 
-  const handleRoomClick = (room) => {
+const handleRoomClick = (room) => {
+  // Nếu room có password, hiển thị modal nhập password
+  if (room.password && room.password.trim() !== '') {
+    setShowPasswordModal(room);
+    setPasswordInput('');
+    setPasswordError('');
+  } else {
+    // Không có password, vào thẳng
     setSelectedRoom(room);
     setCurrentView('room');
     setSearchTerm('');
     setCurrentPage(1);
-  };
+  }
+};
+const handlePasswordSubmit = () => {
+  if (passwordInput === showPasswordModal.password) {
+    // Đúng password
+    setSelectedRoom(showPasswordModal);
+    setCurrentView('room');
+    setSearchTerm('');
+    setCurrentPage(1);
+    setShowPasswordModal(null);
+    setPasswordInput('');
+    setPasswordError('');
+  } else {
+    // Sai password
+    setPasswordError('Mật khẩu không đúng!');
+  }
+};
 
   const handleExcelUpload = (event, roomId) => {
   const file = event.target.files[0];
@@ -657,7 +687,7 @@ const handleAdminLogin = async () => {
   };
 
   const handleCreateRoom = () => {
-    const { name, icon, rule } = roomForm;
+    const { name, icon, password, rule } = roomForm;
     
     if (!name.trim()) {
       alert('Vui lòng nhập tên Room!');
@@ -665,20 +695,22 @@ const handleAdminLogin = async () => {
     }
 
     const newRoom = {
-      id: rooms.length > 0 ? Math.max(...rooms.map(r => r.id)) + 1 : 1,
-      name: name.trim(),
-      icon: icon || '🏠',
-      qrCode: null,
-      rule: rule,
-      members: [],
-      transactions: {}
+    id: rooms.length > 0 ? Math.max(...rooms.map(r => r.id)) + 1 : 1,
+    name: name.trim(),
+    icon: icon || '🏠',
+    qrCode: null,
+    password: password.trim(),
+    rule: rule,
+    members: [],
+    transactions: {}
     };
 
     setRooms([...rooms, newRoom]);
     setRoomForm({
-      name: '',
-      icon: '🏠',
-      rule: [
+    name: '',
+    icon: '🏠',
+    password: '',
+    rule: [
         { min: 500000, max: 1000000, points: 0.5 },
         { min: 1000000, max: 2000000, points: 1 },
         { min: 2000000, max: 5000000, points: 2 },
@@ -693,15 +725,16 @@ const handleAdminLogin = async () => {
   const handleEditRoom = (room) => {
     setEditingRoom(room);
     setRoomForm({
-      name: room.name,
-      icon: room.icon,
-      rule: [...room.rule]
-    });
+    name: room.name,
+    icon: room.icon,
+    password: room.password || '',
+    rule: [...room.rule]
+  });
     setShowRoomForm(true);
   };
 
   const handleUpdateRoom = () => {
-    const { name, icon, rule } = roomForm;
+    const { name, icon, password, rule } = roomForm;
     
     if (!name.trim()) {
       alert('Vui lòng nhập tên Room!');
@@ -709,14 +742,15 @@ const handleAdminLogin = async () => {
     }
 
     setRooms(rooms.map(r => 
-      r.id === editingRoom.id 
-        ? { ...r, name: name.trim(), icon: icon, rule: rule }
-        : r
+        r.id === editingRoom.id 
+          ? { ...r, name: name.trim(), icon: icon, password: password.trim(), rule: rule }
+          : r
     ));
 
     setRoomForm({
       name: '',
       icon: '🏠',
+      password: '',
       rule: [
         { min: 500000, max: 1000000, points: 0.5 },
         { min: 1000000, max: 2000000, points: 1 },
@@ -1192,8 +1226,60 @@ const handleAdminLogin = async () => {
 
   </p>
 </div>
+{/* THÊM MODAL NHẬP PASSWORD */}
+        {showPasswordModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-4xl">{showPasswordModal.icon}</span>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-800">{showPasswordModal.name}</h3>
+                  <p className="text-sm text-gray-600">Room này được bảo vệ bằng mật khẩu</p>
+                </div>
+              </div>
+              
+              <input
+                type="password"
+                placeholder="Nhập mật khẩu..."
+                value={passwordInput}
+                onChange={(e) => {
+                  setPasswordInput(e.target.value);
+                  setPasswordError('');
+                }}
+                onKeyPress={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+                className={`w-full px-4 py-3 border rounded-lg mb-2 focus:outline-none focus:ring-2 ${
+                  passwordError ? 'border-red-500 focus:ring-red-500' : 'focus:ring-blue-500'
+                }`}
+                autoFocus
+              />
+              
+              {passwordError && (
+                <p className="text-red-600 text-sm mb-3">⚠️ {passwordError}</p>
+              )}
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={handlePasswordSubmit}
+                  className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-semibold"
+                >
+                  Xác nhận
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPasswordModal(null);
+                    setPasswordInput('');
+                    setPasswordError('');
+                  }}
+                  className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg hover:bg-gray-300 transition font-semibold"
+                >
+                  Hủy
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         </div>
-      </div>
+      </div>  
     );
   }
 
@@ -1880,8 +1966,23 @@ const handleAdminLogin = async () => {
                     ))}
                   </div>
                 </div>
-
                 <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Mật khẩu bảo vệ (Tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  value={roomForm.password}
+                  onChange={(e) => setRoomForm({...roomForm, password: e.target.value})}
+                  placeholder="Để trống nếu không cần mật khẩu"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  💡 Người dùng phải nhập đúng mật khẩu mới vào được Room
+                </p>
+              </div>
+
+              <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Quy tắc chuyển đổi điểm
                   </label>
