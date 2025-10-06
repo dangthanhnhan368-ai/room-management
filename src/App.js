@@ -1285,29 +1285,26 @@ const handleAddTransaction = () => {
 
   </p>
 </div>
-<div className="mt-12">
-  <h2 className="text-xl font-bold text-gray-800 text-center mb-6">QR Code Zalo các Room</h2>
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-    {rooms.filter(room => room.qrCode).map(room => (
-      <div key={room.id} className="bg-white rounded-lg shadow-lg p-4 hover:shadow-xl transition">
-        <div className="flex items-center gap-3 mb-3">
-          <span className="text-3xl">{room.icon}</span>
-          <h3 className="font-semibold text-gray-800">{room.name}</h3>
-        </div>
-        <img 
-          src={room.qrCode} 
-          alt={`QR Code ${room.name}`} 
-          className="w-full aspect-square object-contain rounded-lg border-2 border-gray-200"
-        />
-        <p className="text-center text-xs text-gray-600 mt-2">Quét mã để liên hệ</p>
-      </div>
-    ))}
+{/* QR Code góc dưới bên phải */}
+{rooms.find(room => room.qrCode) && (
+  <div className="fixed bottom-4 right-4 bg-white p-3 rounded-lg shadow-xl border-2 border-blue-500 z-40">
+    <img 
+      src={rooms.find(room => room.qrCode).qrCode} 
+      alt="QR Code Zalo" 
+      className="w-32 h-32 object-contain"
+    />
+    <p className="text-center text-xs text-gray-600 mt-1">QR Zalo</p>
   </div>
-  
-  {rooms.filter(room => room.qrCode).length === 0 && (
-    <p className="text-center text-gray-500 text-sm">Chưa có QR Code nào được upload</p>
+)}
+
+{/* Placeholder nếu chưa có QR */}
+{!rooms.find(room => room.qrCode) && (
+  <div className="fixed bottom-4 right-4 bg-white p-2 rounded-lg shadow-lg z-40">
+    <div className="w-24 h-24 bg-gray-200 flex items-center justify-center text-xs text-gray-500">
+      QR Zalo
+    </div>
+  </div>
   )}
-</div>
 {/* THÊM MODAL NHẬP PASSWORD */}
         {showPasswordModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
