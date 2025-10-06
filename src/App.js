@@ -146,7 +146,8 @@ const RoomManagementSystem = () => {
     price: '',
     description: '',
     manualPoints: '',
-    isAddPointTransaction: false
+    isAddPointTransaction: false,
+    isFreeTransaction: false
   });
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [memberForm, setMemberForm] = useState({
@@ -505,7 +506,7 @@ const handleAdminLogin = async () => {
   };
 
 const handleAddTransaction = () => {
-  const { roomId, date, delivererId, receiverId, price, description, manualPoints, isAddPointTransaction } = transactionForm;
+  const { roomId, date, delivererId, receiverId, price, description, manualPoints, isAddPointTransaction, isFreeTransaction } = transactionForm;
   
   if (!roomId || !receiverId || !price || !description) {
     alert('Vui lòng điền đầy đủ thông tin!');
@@ -536,10 +537,13 @@ const handleAddTransaction = () => {
   const room = rooms.find(r => r.id === roomId);
   if (!room) return;
 
-  let points;
+  let points = 0;
   let actualDelivererId = isAddPointTransaction ? 0 : parseInt(delivererId);
   
-  if (isAddPointTransaction) {
+  // TÍNH ĐIỂM THEO LOẠI GIAO DỊCH
+  if (isFreeTransaction) {
+    points = 0; // Giao Free: 0 điểm
+  } else if (isAddPointTransaction) {
     points = Math.floor(priceNum / 100000);
     if (points === 0) {
       alert('Giá trị tối thiểu cho giao dịch cộng điểm là 100,000 VND!');
@@ -572,22 +576,42 @@ const handleAddTransaction = () => {
   const dateObj = new Date(date);
   const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
 
+  // XÁC ĐỊNH VAI TRÒ VÀ ĐIỂM
+  let delivererRole, receiverRole, delivererPoints, receiverPoints;
+  
+  if (isFreeTransaction) {
+    delivererRole = 'Giao Free';
+    receiverRole = 'Nhận Free';
+    delivererPoints = 0;
+    receiverPoints = 0;
+  } else if (isAddPointTransaction) {
+    delivererRole = 'Cộng điểm';
+    receiverRole = 'Mua điểm';
+    delivererPoints = -points;
+    receiverPoints = points;
+  } else {
+    delivererRole = 'Giao';
+    receiverRole = 'Nhận';
+    delivererPoints = points;
+    receiverPoints = -points;
+  }
+
   const delivererTransaction = {
     date: formattedDate,
     description: description,
     price: priceNum,
-    role: isAddPointTransaction ? 'Cộng điểm' : 'Giao',
+    role: delivererRole,
     partner: receiver.name,
-    points: isAddPointTransaction ? -points : points
+    points: delivererPoints
   };
 
   const receiverTransaction = {
     date: formattedDate,
     description: description,
     price: priceNum,
-    role: isAddPointTransaction ? 'Nhận cộng điểm' : 'Nhận',
+    role: receiverRole,
     partner: deliverer.name,
-    points: points
+    points: receiverPoints
   };
 
   setRooms(rooms.map(r => {
@@ -601,7 +625,8 @@ const handleAddTransaction = () => {
     newTransactions[receiver.id] = [...newTransactions[receiver.id], receiverTransaction];
 
     const newMembers = r.members.map(m => {
-      if (m.id === deliverer.id && !isAddPointTransaction) {
+      if (m.id === deliverer.id && !isAddPointTransaction && !isFreeTransaction) {
+        // Chỉ cộng điểm cho người giao trong giao dịch thường
         return {
           ...m,
           points: {
@@ -610,12 +635,14 @@ const handleAddTransaction = () => {
           }
         };
       }
-      if (m.id === receiver.id) {
+      if (m.id === receiver.id && !isFreeTransaction) {
+        // Cộng điểm (nếu là giao dịch cộng điểm) hoặc trừ điểm (nếu là giao dịch thường)
+        const pointChange = isAddPointTransaction ? points : -points;
         return {
           ...m,
           points: {
             ...m.points,
-            [dateColumns[2]]: (m.points[dateColumns[2]] || 0) + points
+            [dateColumns[2]]: (m.points[dateColumns[2]] || 0) + pointChange
           }
         };
       }
@@ -637,16 +664,22 @@ const handleAddTransaction = () => {
     price: '',
     description: '',
     manualPoints: '',
-    isAddPointTransaction: false
+    isAddPointTransaction: false,
+    isFreeTransaction: false
   });
   setShowTransactionForm(false);
   
-  alert(isAddPointTransaction 
-    ? `Đã cộng ${points} điểm cho ${receiver.name}!` 
-    : 'Thêm giao dịch thành công!'
-  );
+  let successMsg;
+  if (isFreeTransaction) {
+    successMsg = `Đã thêm giao dịch Free (0 điểm) cho ${receiver.name}!`;
+  } else if (isAddPointTransaction) {
+    successMsg = `Đã cộng ${points} điểm cho ${receiver.name}!`;
+  } else {
+    successMsg = 'Thêm giao dịch thành công!';
+  }
+  
+  alert(successMsg);
 };
-
   const handleAddMember = () => {
     const { roomId, id, name, deadline, note, initialPoints } = memberForm;
     
@@ -1252,6 +1285,29 @@ const handleAddTransaction = () => {
 
   </p>
 </div>
+<div className="mt-12">
+  <h2 className="text-xl font-bold text-gray-800 text-center mb-6">QR Code Zalo các Room</h2>
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+    {rooms.filter(room => room.qrCode).map(room => (
+      <div key={room.id} className="bg-white rounded-lg shadow-lg p-4 hover:shadow-xl transition">
+        <div className="flex items-center gap-3 mb-3">
+          <span className="text-3xl">{room.icon}</span>
+          <h3 className="font-semibold text-gray-800">{room.name}</h3>
+        </div>
+        <img 
+          src={room.qrCode} 
+          alt={`QR Code ${room.name}`} 
+          className="w-full aspect-square object-contain rounded-lg border-2 border-gray-200"
+        />
+        <p className="text-center text-xs text-gray-600 mt-2">Quét mã để liên hệ</p>
+      </div>
+    ))}
+  </div>
+  
+  {rooms.filter(room => room.qrCode).length === 0 && (
+    <p className="text-center text-gray-500 text-sm">Chưa có QR Code nào được upload</p>
+  )}
+</div>
 {/* THÊM MODAL NHẬP PASSWORD */}
         {showPasswordModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -1658,6 +1714,7 @@ const handleAddTransaction = () => {
                             ...transactionForm, 
                             isAddPointTransaction: isChecked,
                             delivererId: isChecked && systemMember ? '0' : '',
+                            isFreeTransaction: false
                           });
                         }}
                         className="w-5 h-5 text-purple-600"
@@ -1673,6 +1730,31 @@ const handleAddTransaction = () => {
                       </div>
                     </label>
                   </div>
+                  <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-4">
+  <label className="flex items-center gap-3 cursor-pointer">
+    <input
+      type="checkbox"
+      checked={transactionForm.isFreeTransaction}
+      onChange={(e) => {
+        setTransactionForm({
+          ...transactionForm, 
+          isFreeTransaction: e.target.checked,
+          isAddPointTransaction: false
+        });
+      }}
+      className="w-5 h-5 text-orange-600"
+      disabled={!transactionForm.roomId}
+    />
+    <div className="flex-1">
+      <span className="text-sm font-semibold text-orange-900">
+        Giao Free (Không tính điểm)
+      </span>
+      <p className="text-xs text-orange-700 mt-1">
+        Người giao nhận 0 điểm, người nhận trừ 0 điểm (chỉ ghi nhận giao dịch)
+      </p>
+    </div>
+  </label>
+</div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Ngày giao dịch <span className="text-red-500">*</span>
@@ -1747,9 +1829,15 @@ const handleAddTransaction = () => {
                     placeholder="Nhập giá trị giao dịch..."
                     className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
-                 {transactionForm.price && transactionForm.roomId && (
+{transactionForm.price && transactionForm.roomId && (
   (() => {
-    if (transactionForm.isAddPointTransaction) {
+    if (transactionForm.isFreeTransaction) {
+      return (
+        <p className="text-sm text-orange-600 font-semibold mt-1">
+          Giao Free: 0 điểm (không tính điểm cho cả 2 bên)
+        </p>
+      );
+    } else if (transactionForm.isAddPointTransaction) {
       const pointsFromPrice = Math.floor(parseFloat(transactionForm.price) / 100000);
       return (
         <p className="text-sm text-purple-600 font-semibold mt-1">
@@ -2632,26 +2720,6 @@ const handleAddTransaction = () => {
           )}
         </div>
 
-        {/* Hiển thị QR Code của room - Đặt ở cuối return của room view */}
-{selectedRoom?.qrCode && (
-  <div className="fixed bottom-4 right-4 bg-white p-3 rounded-lg shadow-xl border-2 border-blue-500">
-    <img 
-      src={selectedRoom.qrCode} 
-      alt="QR Code Zalo" 
-      className="w-32 h-32 object-contain"
-    />
-    <p className="text-center text-xs text-gray-600 mt-1">QR Zalo</p>
-  </div>
-)}
-
-{/* Nếu chưa có QR, hiển thị placeholder */}
-{!selectedRoom?.qrCode && (
-  <div className="fixed bottom-4 right-4 bg-white p-2 rounded-lg shadow-lg">
-    <div className="w-24 h-24 bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-      QR Zalo
-    </div>
-  </div>
-)}
       </div>
 
       {showModal && selectedMember && (
