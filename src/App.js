@@ -1250,7 +1250,28 @@ const handleAddTransaction = () => {
     return (
       <div className="min-h-screen bg-gray-50 p-4 md:p-8">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-8">
+          <div className="text-center mb-8 relative">
+            {/* Nút Admin ẩn - nhấn 3 lần liên tiếp */}
+            <button
+              onClick={() => {
+                const now = Date.now();
+                const clicks = JSON.parse(sessionStorage.getItem('adminClicks') || '[]');
+                clicks.push(now);
+                
+                // Chỉ giữ các click trong 2 giây gần nhất
+                const recentClicks = clicks.filter(time => now - time < 2000);
+                sessionStorage.setItem('adminClicks', JSON.stringify(recentClicks));
+                
+                if (recentClicks.length >= 3) {
+                  sessionStorage.removeItem('adminClicks');
+                  setCurrentView('adminLogin');
+                }
+              }}
+              className="absolute top-0 right-0 w-10 h-10 opacity-0"
+              title=""
+            >
+            </button>
+
             <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
               Các thành viên bấm vào logo từng room để xem điểm
             </h1>
