@@ -186,10 +186,7 @@ useEffect(() => {
   return () => window.removeEventListener('keydown', handleKeyPress);
 }, []);
   // Auto-save to localStorage whenever rooms change
-  
-  useEffect(() => {
-  // Chỉ đếm nếu chưa có session
-  const hasVisited = sessionStorage.getItem('hasVisited');
+
   
 // Tăng visit counter trên Firebase (1 lần mỗi session)
 useEffect(() => {
