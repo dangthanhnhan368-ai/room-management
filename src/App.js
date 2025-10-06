@@ -2254,65 +2254,105 @@ const handleAddTransaction = () => {
                 </button>
               </div>
               
-              <div className="overflow-auto max-h-[calc(90vh-80px)]">
-                <table className="w-full">
-                  <thead className="bg-gray-100 sticky top-0">
-                    <tr>
-                      <th className="px-3 py-2 text-left text-sm font-semibold">Ngày</th>
-                      <th className="px-3 py-2 text-left text-sm font-semibold">Thành viên</th>
-                      <th className="px-3 py-2 text-left text-sm font-semibold">Diễn giải</th>
-                      <th className="px-3 py-2 text-right text-sm font-semibold">Giá tiền</th>
-                      <th className="px-3 py-2 text-center text-sm font-semibold">Vai trò</th>
-                      <th className="px-3 py-2 text-left text-sm font-semibold">Đối tác</th>
-                      <th className="px-3 py-2 text-center text-sm font-semibold">Điểm</th>
-                      <th className="px-3 py-2 text-center text-sm font-semibold">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getAllTransactionsFlat(selectedRoomTransactions).map((trans, index) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="px-3 py-2 text-sm">{trans.date}</td>
-                        <td className="px-3 py-2 text-sm font-medium">{trans.memberName}</td>
-                        <td className="px-3 py-2 text-sm max-w-xs truncate" title={trans.description}>
-                          {trans.description}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-right">
-                          {trans.price.toLocaleString('vi-VN')}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-center">
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            trans.role === 'Giao' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}>
-                            {trans.role}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-sm">{trans.partner}</td>
-                        <td className={`px-3 py-2 text-sm text-center font-semibold ${
-                          trans.points > 0 ? 'text-green-600' : 'text-red-600'
+            <div className="overflow-auto max-h-[calc(90vh-80px)]">
+              {/* Desktop View */}
+              <table className="w-full hidden md:table">
+                <thead className="bg-gray-100 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-sm font-semibold">Ngày</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold">Thành viên</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold">Diễn giải</th>
+                    <th className="px-3 py-2 text-right text-sm font-semibold">Giá tiền</th>
+                    <th className="px-3 py-2 text-center text-sm font-semibold">Vai trò</th>
+                    <th className="px-3 py-2 text-left text-sm font-semibold">Đối tác</th>
+                    <th className="px-3 py-2 text-center text-sm font-semibold">Điểm</th>
+                    <th className="px-3 py-2 text-center text-sm font-semibold">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {getAllTransactionsFlat(selectedRoomTransactions).map((trans, index) => (
+                    <tr key={index} className="border-b hover:bg-gray-50">
+                      <td className="px-3 py-2 text-sm">{trans.date}</td>
+                      <td className="px-3 py-2 text-sm font-medium">{trans.memberName}</td>
+                      <td className="px-3 py-2 text-sm max-w-xs truncate" title={trans.description}>
+                        {trans.description}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-right">
+                        {trans.price.toLocaleString('vi-VN')}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-center">
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          trans.role === 'Giao' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                         }`}>
-                          {trans.points > 0 ? '+' : ''}{trans.points}
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          <div className="flex gap-1 justify-center">
-                            <button
-                              onClick={() => handleDeleteTransaction(trans, selectedRoomTransactions)}
-                              className="text-red-600 hover:bg-red-50 p-1 rounded"
-                              title="Xóa"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {getAllTransactionsFlat(selectedRoomTransactions).length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    Chưa có giao dịch nào
+                          {trans.role}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-sm">{trans.partner}</td>
+                      <td className={`px-3 py-2 text-sm text-center font-semibold ${
+                        trans.points > 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {trans.points > 0 ? '+' : ''}{trans.points}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <button
+                          onClick={() => handleDeleteTransaction(trans, selectedRoomTransactions)}
+                          className="text-red-600 hover:bg-red-50 p-1 rounded"
+                          title="Xóa"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Mobile View */}
+              <div className="md:hidden space-y-3 p-4">
+                {getAllTransactionsFlat(selectedRoomTransactions).map((trans, index) => (
+                  <div key={index} className="bg-white border rounded-lg p-4 shadow-sm">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-700">{trans.date}</div>
+                        <div className="text-xs text-gray-600">{trans.memberName}</div>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteTransaction(trans, selectedRoomTransactions)}
+                        className="text-red-600 hover:bg-red-50 p-2 rounded"
+                        title="Xóa"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-800 mb-2 line-clamp-2">{trans.description}</p>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        trans.role === 'Giao' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {trans.role}
+                      </span>
+                      <span className="text-sm text-gray-600">→ {trans.partner}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="font-semibold text-gray-900 text-sm">
+                        {trans.price.toLocaleString('vi-VN')} VND
+                      </div>
+                      <div className={`font-bold text-sm ${
+                        trans.points > 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {trans.points > 0 ? '+' : ''}{trans.points} điểm
+                      </div>
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
+
+              {getAllTransactionsFlat(selectedRoomTransactions).length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  Chưa có giao dịch nào
+                </div>
+              )}
+            </div>
             </div>
           </div>
         )}
@@ -2734,7 +2774,8 @@ const handleAddTransaction = () => {
             </div>
             
             <div className="overflow-auto max-h-[calc(90vh-80px)]">
-              <table className="w-full">
+              {/* Desktop View - Table */}
+              <table className="w-full hidden md:table">
                 <thead className="bg-gray-100 sticky top-0">
                   <tr>
                     <th className="px-3 py-2 text-left text-sm font-semibold">Ngày</th>
@@ -2778,6 +2819,43 @@ const handleAddTransaction = () => {
                   )}
                 </tbody>
               </table>
+
+              {/* Mobile View - Cards */}
+              <div className="md:hidden space-y-3 p-4">
+                {selectedRoom.transactions[selectedMember.id]?.length > 0 ? (
+                  selectedRoom.transactions[selectedMember.id].map((trans, index) => (
+                    <div key={index} className="bg-white border rounded-lg p-4 shadow-sm">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-sm font-semibold text-gray-700">{trans.date}</span>
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          trans.role === 'Giao' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {trans.role}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-800 mb-2">{trans.description}</p>
+                      <div className="flex justify-between items-center text-sm">
+                        <div>
+                          <span className="text-gray-600">Đối tác: </span>
+                          <span className="font-medium">{trans.partner}</span>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-gray-900">
+                            {trans.price.toLocaleString('vi-VN')} VND
+                          </div>
+                          <div className={`font-bold ${
+                            trans.points > 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {trans.points > 0 ? '+' : ''}{trans.points} điểm
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center text-gray-500 py-8">Chưa có lịch sử giao dịch</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
