@@ -133,6 +133,7 @@ const RoomManagementSystem = () => {
   const [isFirebaseAuthenticated, setIsFirebaseAuthenticated] = useState(false);
   const [isLoadingFromFirebase, setIsLoadingFromFirebase] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [visitCount, setVisitCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [showTransactionForm, setShowTransactionForm] = useState(false);
@@ -172,6 +173,8 @@ const RoomManagementSystem = () => {
   const [selectedRoomTransactions, setSelectedRoomTransactions] = useState(null);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [showQRUpload, setShowQRUpload] = useState(null);
+  const [showMemberHistory, setShowMemberHistory] = useState(null);
+  const [editingHistoryTransaction, setEditingHistoryTransaction] = useState(null);
 // Admin shortcut: Ctrl + Shift + X
 useEffect(() => {
   const handleKeyPress = (e) => {
@@ -185,8 +188,39 @@ useEffect(() => {
   // Auto-save to localStorage whenever rooms change
   
   useEffect(() => {
-  const currentCount = parseInt(localStorage.getItem('visitCount') || '0');
-  localStorage.setItem('visitCount', (currentCount + 1).toString());
+  // Chỉ đếm nếu chưa có session
+  const hasVisited = sessionStorage.getItem('hasVisited');
+  
+// Tăng visit counter trên Firebase (1 lần mỗi session)
+useEffect(() => {
+  const hasVisited = sessionStorage.getItem('hasVisited');
+  
+  if (!hasVisited) {
+    const counterRef = ref(database, 'visitCount');
+    
+    // Đọc giá trị hiện tại và tăng lên 1
+    get(counterRef).then((snapshot) => {
+      const currentCount = snapshot.val() || 0;
+      set(counterRef, currentCount + 1)
+        .then(() => console.log('✅ Visit count increased'))
+        .catch(error => console.error('❌ Error updating visit count:', error));
+    });
+    
+    // Đánh dấu đã đếm trong session này
+    sessionStorage.setItem('hasVisited', 'true');
+  }
+}, []);
+// Lắng nghe thay đổi visit counter real-time
+useEffect(() => {
+  const counterRef = ref(database, 'visitCount');
+  
+  const unsubscribe = onValue(counterRef, (snapshot) => {
+    const count = snapshot.val() || 0;
+    setVisitCount(count);
+    console.log('📊 Visit count updated:', count);
+  });
+  
+  return () => unsubscribe();
 }, []);
 // Kiểm tra trạng thái đăng nhập Firebase
 useEffect(() => {
@@ -1133,7 +1167,8 @@ const handleAdminLogin = async () => {
 
 <div className="text-center mt-8">
   <p className="text-gray-600 text-sm">
-    👁️ Lượt truy cập: <span className="font-semibold">{localStorage.getItem('visitCount') || 0}</span>
+    👁️ Lượt truy cập: <span className="font-semibold text-blue-600">{visitCount.toLocaleString('vi-VN')}</span>
+    <span className="text-xs text-gray-400 ml-2">(tổng tất cả thiết bị)</span>
   </p>
 </div>
         </div>
@@ -1385,18 +1420,36 @@ const handleAdminLogin = async () => {
                     
                     {room.members.length > 0 && (
                       <div className="mt-3 border-t pt-3">
-                        <p className="text-xs font-semibold text-gray-700 mb-2">Danh sách thành viên:</p>
-                        <div className="space-y-1 max-h-40 overflow-y-auto">
-                          {room.members.slice(0, 5).map(member => (
-                            <div key={member.id} className="flex items-center justify-between text-xs bg-white p-2 rounded">
-                              <span className="font-medium">{member.name} (ID: {member.id})</span>
+                        <p className="text-xs font-semibold text-gray-700 mb-2">
+                          Danh sách thành viên ({room.members.length}):
+                        </p>
+                        <div className="space-y-1 max-h-60 overflow-y-auto border rounded-lg bg-gray-50 p-2">
+                          {room.members.map(member => (
+                            <div key={member.id} className="flex items-center justify-between text-xs bg-white p-2 rounded hover:bg-blue-50 transition">
+                              <div className="flex-1">
+                                <span className="font-medium">{member.name}</span>
+                                <span className="text-gray-500 ml-2">(ID: {member.id})</span>
+                                <span className={`ml-2 font-semibold ${
+                                  (member.points[dateColumns[2]] || 0) > 0 ? 'text-green-600' : 
+                                  (member.points[dateColumns[2]] || 0) < 0 ? 'text-red-600' : 'text-gray-600'
+                                }`}>
+                                  {member.points[dateColumns[2]] || 0} điểm
+                                </span>
+                              </div>
                               <div className="flex gap-1">
+                                <button
+                                  onClick={() => setShowMemberHistory({ member, room })}
+                                  className="text-blue-600 hover:bg-blue-50 p-1 rounded"
+                                  title="Xem lịch sử"
+                                >
+                                  <Edit2 size={14} />
+                                </button>
                                 <button
                                   onClick={() => handleEditMember(member, room.id)}
                                   className="text-yellow-600 hover:bg-yellow-50 p-1 rounded"
-                                  title="Sửa"
+                                  title="Sửa thông tin"
                                 >
-                                  <Edit2 size={14} />
+                                  <Settings size={14} />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteMember(member.id, room.id)}
@@ -1408,9 +1461,6 @@ const handleAdminLogin = async () => {
                               </div>
                             </div>
                           ))}
-                          {room.members.length > 5 && (
-                            <p className="text-xs text-gray-500 text-center">...và {room.members.length - 5} thành viên khác</p>
-                          )}
                         </div>
                       </div>
                     )}
@@ -2038,6 +2088,255 @@ const handleAdminLogin = async () => {
             </div>
           </div>
         )}
+        {showMemberHistory && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex justify-between items-center">
+        <div>
+          <h2 className="text-xl font-bold">
+            Lịch sử giao dịch - {showMemberHistory.member.name}
+          </h2>
+          <p className="text-sm text-blue-100">
+            Room: {showMemberHistory.room.name} | 
+            Điểm hiện tại: {showMemberHistory.member.points[dateColumns[2]] || 0}
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            setShowMemberHistory(null);
+            setEditingHistoryTransaction(null);
+          }}
+          className="text-white hover:bg-blue-800 rounded-full p-2"
+        >
+          ✕
+        </button>
+      </div>
+      
+      <div className="overflow-auto max-h-[calc(90vh-140px)]">
+        <table className="w-full">
+          <thead className="bg-gray-100 sticky top-0">
+            <tr>
+              <th className="px-3 py-2 text-left text-sm font-semibold">Ngày</th>
+              <th className="px-3 py-2 text-left text-sm font-semibold">Diễn giải</th>
+              <th className="px-3 py-2 text-right text-sm font-semibold">Giá tiền</th>
+              <th className="px-3 py-2 text-center text-sm font-semibold">Vai trò</th>
+              <th className="px-3 py-2 text-left text-sm font-semibold">Đối tác</th>
+              <th className="px-3 py-2 text-center text-sm font-semibold">Điểm</th>
+              <th className="px-3 py-2 text-center text-sm font-semibold">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {showMemberHistory.room.transactions[showMemberHistory.member.id]?.length > 0 ? (
+              showMemberHistory.room.transactions[showMemberHistory.member.id].map((trans, index) => (
+                editingHistoryTransaction?.index === index ? (
+                  <tr key={index} className="border-b bg-yellow-50">
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        value={editingHistoryTransaction.date}
+                        onChange={(e) => setEditingHistoryTransaction({
+                          ...editingHistoryTransaction,
+                          date: e.target.value
+                        })}
+                        className="w-20 px-2 py-1 border rounded text-sm"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <textarea
+                        value={editingHistoryTransaction.description}
+                        onChange={(e) => setEditingHistoryTransaction({
+                          ...editingHistoryTransaction,
+                          description: e.target.value
+                        })}
+                        className="w-full px-2 py-1 border rounded text-sm"
+                        rows="2"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        value={editingHistoryTransaction.price.toLocaleString('vi-VN')}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^\d]/g, '');
+                          setEditingHistoryTransaction({
+                            ...editingHistoryTransaction,
+                            price: parseFloat(value) || 0
+                          });
+                        }}
+                        className="w-28 px-2 py-1 border rounded text-sm text-right"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <select
+                        value={editingHistoryTransaction.role}
+                        onChange={(e) => setEditingHistoryTransaction({
+                          ...editingHistoryTransaction,
+                          role: e.target.value
+                        })}
+                        className="px-2 py-1 border rounded text-sm"
+                      >
+                        <option value="Giao">Giao</option>
+                        <option value="Nhận">Nhận</option>
+                      </select>
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        value={editingHistoryTransaction.partner}
+                        onChange={(e) => setEditingHistoryTransaction({
+                          ...editingHistoryTransaction,
+                          partner: e.target.value
+                        })}
+                        className="w-full px-2 py-1 border rounded text-sm"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={editingHistoryTransaction.points}
+                        onChange={(e) => setEditingHistoryTransaction({
+                          ...editingHistoryTransaction,
+                          points: parseFloat(e.target.value) || 0
+                        })}
+                        className="w-20 px-2 py-1 border rounded text-sm text-center"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <div className="flex gap-1 justify-center">
+                        <button
+                          onClick={() => {
+                            const updatedTransactions = [...showMemberHistory.room.transactions[showMemberHistory.member.id]];
+                            updatedTransactions[index] = {
+                              ...editingHistoryTransaction,
+                              date: editingHistoryTransaction.date,
+                              description: editingHistoryTransaction.description,
+                              price: editingHistoryTransaction.price,
+                              role: editingHistoryTransaction.role,
+                              partner: editingHistoryTransaction.partner,
+                              points: editingHistoryTransaction.points
+                            };
+                            
+                            setRooms(rooms.map(r => 
+                              r.id === showMemberHistory.room.id
+                                ? {
+                                    ...r,
+                                    transactions: {
+                                      ...r.transactions,
+                                      [showMemberHistory.member.id]: updatedTransactions
+                                    }
+                                  }
+                                : r
+                            ));
+                            
+                            setEditingHistoryTransaction(null);
+                            alert('Đã cập nhật giao dịch!');
+                          }}
+                          className="text-green-600 hover:bg-green-50 p-1 rounded"
+                          title="Lưu"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          onClick={() => setEditingHistoryTransaction(null)}
+                          className="text-gray-600 hover:bg-gray-50 p-1 rounded"
+                          title="Hủy"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={index} className="border-b hover:bg-gray-50">
+                    <td className="px-3 py-2 text-sm">{trans.date}</td>
+                    <td className="px-3 py-2 text-sm max-w-md">{trans.description}</td>
+                    <td className="px-3 py-2 text-sm text-right">
+                      {trans.price.toLocaleString('vi-VN')}
+                    </td>
+                    <td className="px-3 py-2 text-sm text-center">
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        trans.role === 'Giao' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {trans.role}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-sm">{trans.partner}</td>
+                    <td className={`px-3 py-2 text-sm text-center font-semibold ${
+                      trans.points > 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {trans.points > 0 ? '+' : ''}{trans.points}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <div className="flex gap-1 justify-center">
+                        <button
+                          onClick={() => setEditingHistoryTransaction({ ...trans, index })}
+                          className="text-yellow-600 hover:bg-yellow-50 p-1 rounded"
+                          title="Sửa"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            const confirm = window.confirm('Bạn có chắc chắn muốn xóa giao dịch này?');
+                            if (!confirm) return;
+
+                            const updatedTransactions = showMemberHistory.room.transactions[showMemberHistory.member.id].filter((_, i) => i !== index);
+                            
+                            setRooms(rooms.map(r => 
+                              r.id === showMemberHistory.room.id
+                                ? {
+                                    ...r,
+                                    transactions: {
+                                      ...r.transactions,
+                                      [showMemberHistory.member.id]: updatedTransactions
+                                    }
+                                  }
+                                : r
+                            ));
+                            
+                            alert('Đã xóa giao dịch!');
+                          }}
+                          className="text-red-600 hover:bg-red-50 p-1 rounded"
+                          title="Xóa"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              ))
+            ) : (
+              <tr>
+                <td colSpan="7" className="px-3 py-8 text-center text-gray-500">
+                  Chưa có lịch sử giao dịch
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      
+      <div className="bg-gray-50 p-4 border-t">
+        <div className="flex justify-between items-center">
+          <div className="text-sm text-gray-600">
+            <span className="font-semibold">Tổng giao dịch:</span> {showMemberHistory.room.transactions[showMemberHistory.member.id]?.length || 0}
+          </div>
+          <button
+            onClick={() => {
+              setShowMemberHistory(null);
+              setEditingHistoryTransaction(null);
+            }}
+            className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
       </>
     );
   }
