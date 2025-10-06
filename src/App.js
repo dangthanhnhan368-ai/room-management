@@ -1508,30 +1508,40 @@ const handleAddTransaction = () => {
 </div>
 
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-gray-800">Quản lý Rooms</h2>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        setEditingMember(null);
-                        setShowMemberForm(true);
-                      }}
-                      className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                    >
-                      <Users size={18} />
-                      Thêm thành viên
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditingTransaction(null);
-                        setShowTransactionForm(true);
-                      }}
-                      className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-                    >
-                      <Plus size={18} />
-                      Thêm giao dịch
-                    </button>
-                  </div>
-                </div>
+  <h2 className="text-xl font-semibold text-gray-800">Quản lý Rooms</h2>
+  <div className="flex gap-3">
+    <button
+      onClick={() => {
+        setEditingRoom(null);
+        setShowRoomForm(true);
+      }}
+      className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
+    >
+      <Plus size={18} />
+      Tạo Room mới
+    </button>
+    <button
+      onClick={() => {
+        setEditingMember(null);
+        setShowMemberForm(true);
+      }}
+      className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+    >
+      <Users size={18} />
+      Thêm thành viên
+    </button>
+    <button
+      onClick={() => {
+        setEditingTransaction(null);
+        setShowTransactionForm(true);
+      }}
+      className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+    >
+      <Plus size={18} />
+      Thêm giao dịch
+    </button>
+  </div>
+</div>
 
                 {Array.isArray(rooms) && rooms.map(room => (
                     <div key={room.id} className="border rounded-lg p-4 bg-gray-50">
@@ -1653,16 +1663,7 @@ const handleAddTransaction = () => {
                   </div>
                 ))}
 
-                <button 
-                  onClick={() => {
-                    setEditingRoom(null);
-                    setShowRoomForm(true);
-                  }}
-                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-blue-500 hover:bg-blue-50 transition"
-                >
-                  <Plus size={32} className="mx-auto mb-2 text-gray-400" />
-                  <p className="text-gray-600 font-semibold">Tạo Room mới</p>
-                </button>
+              
               </div>
             </div>
           </div>
