@@ -1064,22 +1064,21 @@ const getAllTransactionsFlat = (room) => {
   const allTransactions = [];
   Object.entries(room.transactions).forEach(([memberId, transactions]) => {
     const member = room.members.find(m => m.id === parseInt(memberId));
-    transactions.forEach(trans => {
+    // Thêm index để biết thứ tự giao dịch được tạo
+    transactions.forEach((trans, transIndex) => {
       allTransactions.push({
         ...trans,
         memberId: parseInt(memberId),
-        memberName: member?.name || `ID: ${memberId}`
+        memberName: member?.name || `ID: ${memberId}`,
+        originalIndex: transIndex // Lưu thứ tự gốc
       });
     });
   });
   
-  // Sắp xếp theo ngày mới nhất lên trên
+  // Sắp xếp theo thứ tự tạo giao dịch (giao dịch mới tạo lên trên)
   return allTransactions.sort((a, b) => {
-    const parseDate = (dateStr) => {
-      const [day, month] = dateStr.split('/');
-      return new Date(2024, parseInt(month) - 1, parseInt(day));
-    };
-    return parseDate(b.date) - parseDate(a.date);
+    // So sánh ngược để giao dịch được thêm sau cùng lên trên
+    return b.originalIndex - a.originalIndex;
   });
 };
 
