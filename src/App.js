@@ -606,13 +606,27 @@ const handleAddTransaction = () => {
 
     let points = 0;
     
-    // TÍNH ĐIỂM THEO LOẠI GIAO DỊCH
-    if (isFreeTransaction) {
-      points = 0; // Giao Free: 0 điểm
-    } else if (isAddPointTransaction) {
-      // Giao dịch cộng điểm: PHẢI nhập thủ công
+// TÍNH ĐIỂM THEO LOẠI GIAO DỊCH
+  if (isFreeTransaction) {
+    points = 0;
+  } else if (isAddPointTransaction) {
+    if (!manualPoints) {
+      alert('Vui lòng nhập số điểm cộng thủ công!');
+      return;
+    }
+    points = parseFloat(manualPoints);
+    if (isNaN(points) || points <= 0) {
+      alert('Điểm thủ công không hợp lệ!');
+      return;
+    }
+    // ✅ LÀM TRÒN 1 chữ số thập phân
+    points = Math.round(points * 10) / 10;
+  } else {
+    points = calculatePoints(priceNum, room.rule);
+    
+    if (points === null) {
       if (!manualPoints) {
-        alert('Vui lòng nhập số điểm cộng thủ công!');
+        alert('Giá trị vượt quy tắc! Vui lòng nhập điểm thủ công.');
         return;
       }
       points = parseFloat(manualPoints);
@@ -620,149 +634,148 @@ const handleAddTransaction = () => {
         alert('Điểm thủ công không hợp lệ!');
         return;
       }
-    } else {
-      // Giao dịch thường: tính theo rule
-      points = calculatePoints(priceNum, room.rule);
-      
-      if (points === null) {
-        if (!manualPoints) {
-          alert('Giá trị vượt quy tắc! Vui lòng nhập điểm thủ công.');
-          return;
-        }
-        points = parseFloat(manualPoints);
-        if (isNaN(points) || points <= 0) {
-          alert('Điểm thủ công không hợp lệ!');
-          return;
-        }
-        points = Math.round(points * 10) / 10;
-      }
+      // ✅ LÀM TRÒN 1 chữ số thập phân
+      points = Math.round(points * 10) / 10;
     }
+  }
 
-    const deliverer = room.members.find(m => m.id === parseInt(delivererId));
-    const receiver = room.members.find(m => m.id === parseInt(receiverId));
+  // ✅ THÊM LOG để kiểm tra
+  console.log('💰 Points calculated:', points);
 
-    if (!deliverer || !receiver) {
-      alert('Không tìm thấy thành viên!');
-      return;
-    }
+  const deliverer = room.members.find(m => m.id === parseInt(delivererId));
+  const receiver = room.members.find(m => m.id === parseInt(receiverId));
 
-    const dateObj = new Date(date);
-    const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+  if (!deliverer || !receiver) {
+    alert('Không tìm thấy thành viên!');
+    return;
+  }
 
-    // XÁC ĐỊNH VAI TRÒ VÀ ĐIỂM
-    let delivererRole, receiverRole, delivererPoints, receiverPoints;
-    
-    if (isFreeTransaction) {
-      delivererRole = 'Giao Free';
-      receiverRole = 'Nhận Free';
-      delivererPoints = 0;
-      receiverPoints = 0;
-    } else if (isAddPointTransaction) {
-      delivererRole = 'Trừ điểm';
-      receiverRole = 'Cộng điểm';
-      delivererPoints = -points; // Người giao bị TRỪ điểm
-      receiverPoints = points;   // Người nhận được CỘNG điểm
-    } else {
-      delivererRole = 'Giao';
-      receiverRole = 'Nhận';
-      delivererPoints = points;  // Người giao được CỘNG điểm
-      receiverPoints = -points;  // Người nhận bị TRỪ điểm
-    }
+  const dateObj = new Date(date);
+  const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
 
-    const delivererTransaction = {
-      date: formattedDate,
-      description: description,
-      price: priceNum,
-      role: delivererRole,
-      partner: receiver.name,
-      points: delivererPoints
-    };
+  // XÁC ĐỊNH VAI TRÒ VÀ ĐIỂM
+  let delivererRole, receiverRole, delivererPoints, receiverPoints;
+  
+  if (isFreeTransaction) {
+    delivererRole = 'Giao Free';
+    receiverRole = 'Nhận Free';
+    delivererPoints = 0;
+    receiverPoints = 0;
+  } else if (isAddPointTransaction) {
+    delivererRole = 'Trừ điểm';
+    receiverRole = 'Cộng điểm';
+    // ✅ LÀM TRÒN khi gán điểm
+    delivererPoints = Math.round(-points * 10) / 10;
+    receiverPoints = Math.round(points * 10) / 10;
+  } else {
+    delivererRole = 'Giao';
+    receiverRole = 'Nhận';
+    // ✅ LÀM TRÒN khi gán điểm
+    delivererPoints = Math.round(points * 10) / 10;
+    receiverPoints = Math.round(-points * 10) / 10;
+  }
 
-    const receiverTransaction = {
-      date: formattedDate,
-      description: description,
-      price: priceNum,
-      role: receiverRole,
-      partner: deliverer.name,
-      points: receiverPoints
-    };
+  console.log('📊 Final points:', {
+    delivererPoints,
+    receiverPoints
+  });
 
-    setRooms(rooms.map(r => {
-      if (r.id !== roomId) return r;
-
-      const newTransactions = { ...r.transactions };
-      if (!newTransactions[deliverer.id]) newTransactions[deliverer.id] = [];
-      if (!newTransactions[receiver.id]) newTransactions[receiver.id] = [];
-      
-      newTransactions[deliverer.id] = [...newTransactions[deliverer.id], delivererTransaction];
-      newTransactions[receiver.id] = [...newTransactions[receiver.id], receiverTransaction];
-
-      const currentDate = dateColumns[2];
-      const newMembers = r.members.map(m => {
-        // Khởi tạo nếu chưa có
-        if (!m.points[currentDate]) {
-          m.points[currentDate] = m.totalPoints || 0;
-        }
-        if (m.totalPoints === undefined) {
-          m.totalPoints = m.points[currentDate] || 0;
-        }
-        
-        if (m.id === deliverer.id && !isFreeTransaction) {
-          const newTotal = m.totalPoints + delivererPoints;
-          return {
-            ...m,
-            points: {
-              ...m.points,
-              [currentDate]: newTotal
-            },
-            totalPoints: newTotal
-          };
-        }
-        if (m.id === receiver.id && !isFreeTransaction) {
-          const newTotal = m.totalPoints + receiverPoints;
-          return {
-            ...m,
-            points: {
-              ...m.points,
-              [currentDate]: newTotal
-            },
-            totalPoints: newTotal
-          };
-        }
-        return m;
-      });
-
-      return {
-        ...r,
-        transactions: newTransactions,
-        members: newMembers
-      };
-    }));
-
-    setTransactionForm({
-      roomId: null,
-      date: new Date().toISOString().split('T')[0],
-      delivererId: '',
-      receiverId: '',
-      price: '',
-      description: '',
-      manualPoints: '',
-      isAddPointTransaction: false,
-      isFreeTransaction: false
-    });
-    setShowTransactionForm(false);
-    
-    let successMsg;
-    if (isFreeTransaction) {
-      successMsg = `Đã thêm giao dịch Free (0 điểm) cho ${receiver.name}!`;
-    } else if (isAddPointTransaction) {
-      successMsg = `Đã cộng ${points} điểm cho ${receiver.name}, trừ ${points} điểm từ ${deliverer.name}!`;
-    } else {
-      successMsg = 'Thêm giao dịch thành công!';
-    }
-    
-    alert(successMsg);
+  const delivererTransaction = {
+    date: formattedDate,
+    description: description,
+    price: priceNum,
+    role: delivererRole,
+    partner: receiver.name,
+    points: delivererPoints
   };
+
+  const receiverTransaction = {
+    date: formattedDate,
+    description: description,
+    price: priceNum,
+    role: receiverRole,
+    partner: deliverer.name,
+    points: receiverPoints
+  };
+
+  setRooms(rooms.map(r => {
+    if (r.id !== roomId) return r;
+
+    const newTransactions = { ...r.transactions };
+    if (!newTransactions[deliverer.id]) newTransactions[deliverer.id] = [];
+    if (!newTransactions[receiver.id]) newTransactions[receiver.id] = [];
+    
+    newTransactions[deliverer.id] = [...newTransactions[deliverer.id], delivererTransaction];
+    newTransactions[receiver.id] = [...newTransactions[receiver.id], receiverTransaction];
+
+    const currentDate = dateColumns[2];
+    const newMembers = r.members.map(m => {
+      if (!m.points[currentDate]) {
+        m.points[currentDate] = m.totalPoints || 0;
+      }
+      if (m.totalPoints === undefined) {
+        m.totalPoints = m.points[currentDate] || 0;
+      }
+      
+      if (m.id === deliverer.id && !isFreeTransaction) {
+        // ✅ LÀM TRÒN khi cập nhật totalPoints
+        const newTotal = Math.round((m.totalPoints + delivererPoints) * 10) / 10;
+        return {
+          ...m,
+          points: {
+            ...m.points,
+            [currentDate]: newTotal
+          },
+          totalPoints: newTotal
+        };
+      }
+      if (m.id === receiver.id && !isFreeTransaction) {
+        // ✅ LÀM TRÒN khi cập nhật totalPoints
+        const newTotal = Math.round((m.totalPoints + receiverPoints) * 10) / 10;
+        return {
+          ...m,
+          points: {
+            ...m.points,
+            [currentDate]: newTotal
+          },
+          totalPoints: newTotal
+        };
+      }
+      return m;
+    });
+
+    return {
+      ...r,
+      transactions: newTransactions,
+      members: newMembers
+    };
+  }));
+
+  // Reset form...
+  setTransactionForm({
+    roomId: null,
+    date: new Date().toISOString().split('T')[0],
+    delivererId: '',
+    receiverId: '',
+    price: '',
+    description: '',
+    manualPoints: '',
+    isAddPointTransaction: false,
+    isFreeTransaction: false
+  });
+  setShowTransactionForm(false);
+  
+  let successMsg;
+  if (isFreeTransaction) {
+    successMsg = `Đã thêm giao dịch Free (0 điểm) cho ${receiver.name}!`;
+  } else if (isAddPointTransaction) {
+    successMsg = `Đã cộng ${points} điểm cho ${receiver.name}, trừ ${points} điểm từ ${deliverer.name}!`;
+  } else {
+    successMsg = 'Thêm giao dịch thành công!';
+  }
+  
+  alert(successMsg);
+};
   const handleAddMember = () => {
     const { roomId, id, name, deadline, note, initialPoints } = memberForm;
     
@@ -1058,97 +1071,109 @@ const handleDeleteTransaction = (transaction, room) => {
   setRooms(rooms.map(r => {
     if (r.id !== room.id) return r;
 
-    // Bước 1: Tìm deliverer và receiver dựa vào role
-    let deliverer, receiver;
+    // Bước 1: Tìm deliverer và receiver
+    let delivererName, receiverName;
     
     if (transaction.role === 'Giao' || transaction.role === 'Giao Free' || transaction.role === 'Trừ điểm') {
-      deliverer = room.members.find(m => m.name === transaction.memberName);
-      receiver = room.members.find(m => m.name === transaction.partner);
+      delivererName = transaction.memberName;
+      receiverName = transaction.partner;
     } else {
-      deliverer = room.members.find(m => m.name === transaction.partner);
-      receiver = room.members.find(m => m.name === transaction.memberName);
+      delivererName = transaction.partner;
+      receiverName = transaction.memberName;
     }
 
+    const deliverer = room.members.find(m => m.name === delivererName);
+    const receiver = room.members.find(m => m.name === receiverName);
+
     if (!deliverer || !receiver) {
-      console.error('Cannot find deliverer or receiver');
+      console.error('❌ Cannot find members:', { delivererName, receiverName });
       return r;
     }
 
-    // Bước 2: Tìm giao dịch GỐC từ cả 2 phía
+    console.log('✅ Found members:', { 
+      deliverer: deliverer.name, 
+      receiver: receiver.name 
+    });
+
+    // Bước 2: Lấy danh sách giao dịch
     const delivererTransactions = r.transactions[deliverer.id] || [];
     const receiverTransactions = r.transactions[receiver.id] || [];
 
-    const delivererTransaction = delivererTransactions.find(t => 
+    console.log('📋 Before delete:', {
+      delivererCount: delivererTransactions.length,
+      receiverCount: receiverTransactions.length
+    });
+
+    // Bước 3: Tìm giao dịch chính xác
+    const delivererTrans = delivererTransactions.find(t => 
       t.date === transaction.date && 
-      t.price === transaction.price && 
+      Math.abs(t.price - transaction.price) < 0.01 && // So sánh số thực
       t.description === transaction.description &&
-      t.partner === receiver.name
+      t.partner === receiverName
     );
 
-    const receiverTransaction = receiverTransactions.find(t => 
+    const receiverTrans = receiverTransactions.find(t => 
       t.date === transaction.date && 
-      t.price === transaction.price && 
+      Math.abs(t.price - transaction.price) < 0.01 && // So sánh số thực
       t.description === transaction.description &&
-      t.partner === deliverer.name
+      t.partner === delivererName
     );
 
-    if (!delivererTransaction || !receiverTransaction) {
-      console.error('Cannot find matching transactions');
+    if (!delivererTrans || !receiverTrans) {
+      console.error('❌ Cannot find matching transactions');
       return r;
     }
 
-    console.log('🔍 Found transactions:', {
-      deliverer: delivererTransaction,
-      receiver: receiverTransaction
+    console.log('🔍 Found transactions to delete:', {
+      deliverer: delivererTrans,
+      receiver: receiverTrans
     });
 
-    // Bước 3: Xóa giao dịch CHÍNH XÁC khỏi cả 2 bên
+    // Bước 4: XÓA giao dịch từ cả 2 phía
     const newTransactions = { ...r.transactions };
     
     newTransactions[deliverer.id] = delivererTransactions.filter(t => 
       !(
-        t.date === transaction.date && 
-        t.price === transaction.price && 
-        t.description === transaction.description && 
-        t.partner === receiver.name
+        t.date === delivererTrans.date && 
+        Math.abs(t.price - delivererTrans.price) < 0.01 &&
+        t.description === delivererTrans.description && 
+        t.partner === delivererTrans.partner
       )
     );
     
     newTransactions[receiver.id] = receiverTransactions.filter(t => 
       !(
-        t.date === transaction.date && 
-        t.price === transaction.price && 
-        t.description === transaction.description && 
-        t.partner === deliverer.name
+        t.date === receiverTrans.date && 
+        Math.abs(t.price - receiverTrans.price) < 0.01 &&
+        t.description === receiverTrans.description && 
+        t.partner === receiverTrans.partner
       )
     );
 
-    console.log('🗑️ After deletion:', {
+    console.log('🗑️ After delete:', {
       delivererCount: newTransactions[deliverer.id].length,
       receiverCount: newTransactions[receiver.id].length
     });
 
-    // Bước 4: HOÁN NGƯỢC điểm
+    // Bước 5: HOÁN NGƯỢC điểm
     const currentDate = dateColumns[2];
-    const isFreeTransaction = delivererTransaction.role === 'Giao Free' || receiverTransaction.role === 'Nhận Free';
+    const isFreeTransaction = delivererTrans.role === 'Giao Free' || receiverTrans.role === 'Nhận Free';
 
     const newMembers = r.members.map(m => {
-      // Khởi tạo nếu chưa có
+      // Khởi tạo totalPoints nếu chưa có
       if (m.totalPoints === undefined) {
         m.totalPoints = m.points[currentDate] || 0;
       }
       
       if (isFreeTransaction) {
-        // Giao Free: không làm gì
         return m;
       }
       
       if (m.id === deliverer.id) {
-        // Hoán ngược điểm của deliverer
-        const pointsToRevert = -delivererTransaction.points;
-        const newTotal = m.totalPoints + pointsToRevert;
+        const pointsToRevert = -delivererTrans.points;
+        const newTotal = Math.round((m.totalPoints + pointsToRevert) * 10) / 10;
         
-        console.log(`🔄 Deliverer ${m.name}:`, {
+        console.log(`🔄 ${m.name}:`, {
           oldTotal: m.totalPoints,
           pointsToRevert,
           newTotal
@@ -1165,11 +1190,10 @@ const handleDeleteTransaction = (transaction, room) => {
       }
       
       if (m.id === receiver.id) {
-        // Hoán ngược điểm của receiver
-        const pointsToRevert = -receiverTransaction.points;
-        const newTotal = m.totalPoints + pointsToRevert;
+        const pointsToRevert = -receiverTrans.points;
+        const newTotal = Math.round((m.totalPoints + pointsToRevert) * 10) / 10;
         
-        console.log(`🔄 Receiver ${m.name}:`, {
+        console.log(`🔄 ${m.name}:`, {
           oldTotal: m.totalPoints,
           pointsToRevert,
           newTotal
@@ -1197,7 +1221,6 @@ const handleDeleteTransaction = (transaction, room) => {
 
   alert('Đã xóa giao dịch thành công!');
   
-  // Cập nhật selectedRoomTransactions nếu đang mở
   if (selectedRoomTransactions) {
     const updatedRoom = rooms.find(r => r.id === room.id);
     if (updatedRoom) {
