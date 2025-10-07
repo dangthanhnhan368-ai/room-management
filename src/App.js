@@ -1060,7 +1060,7 @@ const handleAddTransaction = () => {
     setShowAllTransactions(true);
   };
 
-const getAllTransactionsFlat = (room) => {
+  const getAllTransactionsFlat = (room) => {
   const allTransactions = [];
   Object.entries(room.transactions).forEach(([memberId, transactions]) => {
     const member = room.members.find(m => m.id === parseInt(memberId));
@@ -1074,6 +1074,25 @@ const getAllTransactionsFlat = (room) => {
       });
     });
   });
+  
+  // Sắp xếp theo: 1) Ngày mới nhất trước, 2) Trong cùng ngày thì giao dịch tạo sau lên trên
+  return allTransactions.sort((a, b) => {
+    const parseDate = (dateStr) => {
+      const [day, month] = dateStr.split('/');
+      return new Date(2024, parseInt(month) - 1, parseInt(day));
+    };
+    
+    // So sánh ngày trước
+    const dateCompare = parseDate(b.date) - parseDate(a.date);
+    
+    // Nếu cùng ngày, so sánh theo thứ tự tạo (index lớn hơn = tạo sau = lên trên)
+    if (dateCompare === 0) {
+      return b.originalIndex - a.originalIndex;
+    }
+    
+    return dateCompare;
+  });
+};
   
   // Sắp xếp theo thứ tự tạo giao dịch (giao dịch mới tạo lên trên)
   return allTransactions.sort((a, b) => {
@@ -3412,6 +3431,6 @@ const handleDeleteTransaction = (transaction, room) => {
       )}
     </div>
   );
-};
+;
 
 export default RoomManagementSystem;
