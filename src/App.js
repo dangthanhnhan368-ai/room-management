@@ -2744,39 +2744,71 @@ const handleDeleteTransaction = (transaction, room) => {
                     </td>
                     <td className="px-3 py-2 text-center">
                       <div className="flex gap-1 justify-center">
-                        <button
-                          onClick={() => {
-                            const updatedTransactions = [...showMemberHistory.room.transactions[showMemberHistory.member.id]];
-                            updatedTransactions[index] = {
-                              ...editingHistoryTransaction,
-                              date: editingHistoryTransaction.date,
-                              description: editingHistoryTransaction.description,
-                              price: editingHistoryTransaction.price,
-                              role: editingHistoryTransaction.role,
-                              partner: editingHistoryTransaction.partner,
-                              points: editingHistoryTransaction.points
-                            };
-                            
-                            setRooms(rooms.map(r => 
-                              r.id === showMemberHistory.room.id
-                                ? {
-                                    ...r,
-                                    transactions: {
-                                      ...r.transactions,
-                                      [showMemberHistory.member.id]: updatedTransactions
-                                    }
-                                  }
-                                : r
-                            ));
-                            
-                            setEditingHistoryTransaction(null);
-                            alert('Đã cập nhật giao dịch!');
-                          }}
-                          className="text-green-600 hover:bg-green-50 p-1 rounded"
-                          title="Lưu"
-                        >
-                          ✓
-                        </button>
+                       <button
+  onClick={() => {
+    const room = showMemberHistory.room;
+    const member = showMemberHistory.member;
+    const oldTrans = room.transactions[member.id][index];
+    const newTrans = editingHistoryTransaction;
+    
+    // Tính chênh lệch điểm
+    const pointsDiff = newTrans.points - oldTrans.points;
+    const currentDate = dateColumns[2];
+    
+    // Cập nhật giao dịch
+    const updatedTransactions = [...room.transactions[member.id]];
+    updatedTransactions[index] = {
+      date: newTrans.date,
+      description: newTrans.description,
+      price: newTrans.price,
+      role: newTrans.role,
+      partner: newTrans.partner,
+      points: newTrans.points
+    };
+    
+    setRooms(rooms.map(r => {
+      if (r.id !== room.id) return r;
+      
+      return {
+        ...r,
+        transactions: {
+          ...r.transactions,
+          [member.id]: updatedTransactions
+        },
+        members: r.members.map(m => {
+          if (m.id !== member.id) return m;
+          
+          // Cập nhật điểm với chênh lệch
+          const newTotal = Math.round((m.totalPoints + pointsDiff) * 10) / 10;
+          
+          console.log(`✏️ Sửa giao dịch - ${m.name}:`, {
+            oldPoints: oldTrans.points,
+            newPoints: newTrans.points,
+            pointsDiff,
+            oldTotal: m.totalPoints,
+            newTotal
+          });
+          
+          return {
+            ...m,
+            points: {
+              ...m.points,
+              [currentDate]: newTotal
+            },
+            totalPoints: newTotal
+          };
+        })
+      };
+    }));
+    
+    setEditingHistoryTransaction(null);
+    alert('Đã cập nhật giao dịch và điểm!');
+  }}
+  className="text-green-600 hover:bg-green-50 p-1 rounded"
+  title="Lưu"
+>
+  ✓
+</button>
                         <button
                           onClick={() => setEditingHistoryTransaction(null)}
                           className="text-gray-600 hover:bg-gray-50 p-1 rounded"
@@ -2816,32 +2848,74 @@ const handleDeleteTransaction = (transaction, room) => {
                         >
                           <Edit2 size={14} />
                         </button>
-                        <button
-                          onClick={() => {
-                            const confirm = window.confirm('Bạn có chắc chắn muốn xóa giao dịch này?');
-                            if (!confirm) return;
+                      <button
+  onClick={() => {
+    const confirmDelete = window.confirm('Bạn có chắc chắn muốn xóa giao dịch này?');
+    if (!confirmDelete) return;
 
-                            const updatedTransactions = showMemberHistory.room.transactions[showMemberHistory.member.id].filter((_, i) => i !== index);
-                            
-                            setRooms(rooms.map(r => 
-                              r.id === showMemberHistory.room.id
-                                ? {
-                                    ...r,
-                                    transactions: {
-                                      ...r.transactions,
-                                      [showMemberHistory.member.id]: updatedTransactions
-                                    }
-                                  }
-                                : r
-                            ));
-                            
-                            alert('Đã xóa giao dịch!');
-                          }}
-                          className="text-red-600 hover:bg-red-50 p-1 rounded"
-                          title="Xóa"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+    const transToDelete = trans;
+    const room = showMemberHistory.room;
+    const member = showMemberHistory.member;
+    
+    // Xóa giao dịch khỏi mảng
+    const updatedTransactions = room.transactions[member.id].filter((_, i) => i !== index);
+    
+    // Cập nhật điểm: hoàn ngược lại điểm của giao dịch bị xóa
+    const currentDate = dateColumns[2];
+    const isFreeTransaction = transToDelete.role === 'Giao Free' || transToDelete.role === 'Nhận Free';
+    
+    setRooms(rooms.map(r => {
+      if (r.id !== room.id) return r;
+      
+      return {
+        ...r,
+        transactions: {
+          ...r.transactions,
+          [member.id]: updatedTransactions
+        },
+        members: r.members.map(m => {
+          if (m.id !== member.id || isFreeTransaction) return m;
+          
+          // Hoàn ngược điểm
+          const pointsToRevert = -transToDelete.points;
+          const newTotal = Math.round((m.totalPoints + pointsToRevert) * 10) / 10;
+          
+          console.log(`🔄 Xóa giao dịch - ${m.name}:`, {
+            oldTotal: m.totalPoints,
+            pointsDeleted: transToDelete.points,
+            pointsToRevert,
+            newTotal
+          });
+          
+          return {
+            ...m,
+            points: {
+              ...m.points,
+              [currentDate]: newTotal
+            },
+            totalPoints: newTotal
+          };
+        })
+      };
+    }));
+    
+    // Cập nhật state showMemberHistory để UI phản ánh ngay
+    const updatedRoom = rooms.find(r => r.id === room.id);
+    if (updatedRoom) {
+      const updatedMember = updatedRoom.members.find(m => m.id === member.id);
+      setShowMemberHistory({
+        room: updatedRoom,
+        member: updatedMember
+      });
+    }
+    
+    alert('Đã xóa giao dịch và cập nhật điểm!');
+  }}
+  className="text-red-600 hover:bg-red-50 p-1 rounded"
+  title="Xóa"
+>
+  <Trash2 size={14} />
+</button>
                       </div>
                     </td>
                   </tr>
