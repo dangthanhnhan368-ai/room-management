@@ -1655,96 +1655,104 @@ const handleDeleteTransaction = (transaction, room) => {
         <div className="min-h-screen bg-gray-50 p-4 md:p-8">
           <div className="max-w-6xl mx-auto">
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-bold text-gray-800">Quản lý Admin</h1>
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={handleDownloadTemplate}
-                    className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
-                    title="Tải Template Excel"
-                  >
-                    <Download size={18} />
-                    Template Excel
-                  </button>
-                  <button
-                    onClick={handleExportAllRoomsToExcel}
-                    className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
-                    title="Xuất tất cả Rooms"
-                  >
-                    <FileJson size={18} />
-                    Xuất tất cả Excel
-                  </button>
-                  <button
-                    onClick={handleExportData}
-                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-                    title="Xuất dữ liệu JSON"
-                  >
-                    <Download size={18} />
-                    Xuất JSON
-                  </button>
-                  <label className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 cursor-pointer">
-                    <Upload size={18} />
-                    Nhập JSON
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={handleImportData}
-                      className="hidden"
-                    />
-                  </label>
-                  <button
-                    onClick={handleClearAllData}
-                    className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-                    title="Xóa tất cả"
-                  >
-                    <Trash2 size={18} />
-                    Xóa tất cả
-                  </button>
-                  <button
-                    onClick={() => {
-                      setCurrentView('home');
-                      setIsAdminAuthenticated(false);
-                      setAdminPassword('');
-                    }}
-                    className="flex items-center gap-2 bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300"
-                  >
-                    <Home size={18} />
-                    Trang chủ
-                  </button>
-<button
-  onClick={async () => {
-    const roomsRef = ref(database, 'rooms');
-    const snapshot = await get(roomsRef);
-    const data = snapshot.val();
-    if (data && Array.isArray(data)) {
-      const converted = convertFromFirebase(data);
-      setRooms(converted);
-      alert('Đã tải lại dữ liệu từ Firebase!');
-    }
-  }}
-  className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700"
->
-  🔄 Tải lại
-</button>            
-<button
-  onClick={async () => {
-    try {
-      await signOut(auth);
-      setCurrentView('home');
-      setIsAdminAuthenticated(false);
-      setAdminPassword('');
-      alert('Đã đăng xuất thành công!');
-    } catch (error) {
-      console.error('Logout error:', error);
-      alert('Lỗi khi đăng xuất: ' + error.message);
-    }
-  }}
-  className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
->
-  Đăng xuất
-</button>
-                </div>
-              </div>
+<div className="mb-6">
+  {/* Title */}
+  <h1 className="text-xl md:text-2xl font-bold text-gray-800 mb-4">Quản lý Admin</h1>
+  
+  {/* Buttons - Responsive Grid */}
+  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:flex xl:flex-wrap gap-2">
+    <button
+      onClick={handleDownloadTemplate}
+      className="flex items-center justify-center gap-1 md:gap-2 bg-indigo-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-indigo-700 text-xs md:text-sm"
+      title="Tải Template Excel"
+    >
+      <Download size={16} className="md:w-[18px] md:h-[18px]" />
+      <span className="hidden sm:inline">Template</span>
+      <span className="sm:hidden">Mẫu</span>
+    </button>
+    
+    <button
+      onClick={handleExportAllRoomsToExcel}
+      className="flex items-center justify-center gap-1 md:gap-2 bg-purple-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-purple-700 text-xs md:text-sm"
+      title="Xuất tất cả Rooms"
+    >
+      <FileJson size={16} className="md:w-[18px] md:h-[18px]" />
+      <span className="hidden sm:inline">Xuất Excel</span>
+      <span className="sm:hidden">Excel</span>
+    </button>
+    
+    <button
+      onClick={handleExportData}
+      className="flex items-center justify-center gap-1 md:gap-2 bg-green-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-green-700 text-xs md:text-sm"
+      title="Xuất dữ liệu JSON"
+    >
+      <Download size={16} className="md:w-[18px] md:h-[18px]" />
+      <span className="hidden sm:inline">Xuất JSON</span>
+      <span className="sm:hidden">JSON</span>
+    </button>
+    
+    <label className="flex items-center justify-center gap-1 md:gap-2 bg-blue-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-blue-700 cursor-pointer text-xs md:text-sm">
+      <Upload size={16} className="md:w-[18px] md:h-[18px]" />
+      <span className="hidden sm:inline">Nhập JSON</span>
+      <span className="sm:hidden">Import</span>
+      <input
+        type="file"
+        accept=".json"
+        onChange={handleImportData}
+        className="hidden"
+      />
+    </label>
+    
+    <button
+      onClick={() => {
+        setCurrentView('home');
+        setIsAdminAuthenticated(false);
+        setAdminPassword('');
+      }}
+      className="flex items-center justify-center gap-1 md:gap-2 bg-gray-200 px-2 md:px-4 py-2 rounded-lg hover:bg-gray-300 text-xs md:text-sm"
+    >
+      <Home size={16} className="md:w-[18px] md:h-[18px]" />
+      <span className="hidden sm:inline">Trang chủ</span>
+      <span className="sm:hidden">Home</span>
+    </button>
+    
+    <button
+      onClick={async () => {
+        const roomsRef = ref(database, 'rooms');
+        const snapshot = await get(roomsRef);
+        const data = snapshot.val();
+        if (data && Array.isArray(data)) {
+          const converted = convertFromFirebase(data);
+          setRooms(converted);
+          alert('Đã tải lại dữ liệu từ Firebase!');
+        }
+      }}
+      className="flex items-center justify-center gap-1 md:gap-2 bg-orange-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-orange-700 text-xs md:text-sm"
+    >
+      🔄
+      <span className="hidden sm:inline">Tải lại</span>
+      <span className="sm:hidden">Reload</span>
+    </button>
+    
+    <button
+      onClick={async () => {
+        try {
+          await signOut(auth);
+          setCurrentView('home');
+          setIsAdminAuthenticated(false);
+          setAdminPassword('');
+          alert('Đã đăng xuất thành công!');
+        } catch (error) {
+          console.error('Logout error:', error);
+          alert('Lỗi khi đăng xuất: ' + error.message);
+        }
+      }}
+      className="flex items-center justify-center gap-1 md:gap-2 bg-red-500 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-red-600 text-xs md:text-sm col-span-2 md:col-span-1"
+    >
+      Đăng xuất
+    </button>
+  </div>
+</div>
 <div className="space-y-6">
   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
   <div className="flex items-center gap-2 mb-2">
@@ -1764,35 +1772,39 @@ const handleDeleteTransaction = (transaction, room) => {
   </p>
 </div>
 
-                <div className="flex items-center justify-between">
-  <h2 className="text-xl font-semibold text-gray-800">Quản lý Rooms</h2>
-  <div className="flex gap-3">
+<div className="mb-4">
+  <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-3">Quản lý Rooms</h2>
+  
+  {/* Buttons - Mobile Friendly */}
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
     <button
       onClick={() => {
         setEditingRoom(null);
         setShowRoomForm(true);
       }}
-      className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
+      className="flex items-center justify-center gap-2 bg-purple-600 text-white px-3 py-2.5 rounded-lg hover:bg-purple-700 text-sm"
     >
       <Plus size={18} />
       Tạo Room mới
     </button>
+    
     <button
       onClick={() => {
         setEditingMember(null);
         setShowMemberForm(true);
       }}
-      className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+      className="flex items-center justify-center gap-2 bg-blue-600 text-white px-3 py-2.5 rounded-lg hover:bg-blue-700 text-sm"
     >
       <Users size={18} />
       Thêm thành viên
     </button>
+    
     <button
       onClick={() => {
         setEditingTransaction(null);
         setShowTransactionForm(true);
       }}
-      className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+      className="flex items-center justify-center gap-2 bg-green-600 text-white px-3 py-2.5 rounded-lg hover:bg-green-700 text-sm sm:col-span-2 lg:col-span-1"
     >
       <Plus size={18} />
       Thêm giao dịch
@@ -1802,63 +1814,77 @@ const handleDeleteTransaction = (transaction, room) => {
 
                 {Array.isArray(rooms) && rooms.map(room => (
                     <div key={room.id} className="border rounded-lg p-4 bg-gray-50">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-4xl">{room.icon}</span>
-                        <h3 className="font-semibold text-lg">{room.name}</h3>
-                      </div>
-                      <div className="flex gap-2 flex-wrap">
+                   {/* Header Room - Mobile Responsive */}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+                        {/* Icon và tên */}
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl sm:text-4xl">{room.icon}</span>
+                          <h3 className="font-semibold text-base sm:text-lg">{room.name}</h3>
+                        </div>
+                        
+                        {/* Buttons - Grid trên mobile */}
+                        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
                         <button
-                          onClick={() => handleExportRoomToExcel(room)}
-                          className="flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 text-sm"
-                          title="Xuất Excel"
-                        >
-                          <Download size={16} />
-                          Xuất Excel
-                        </button>
-                        <button
-                          onClick={() => setShowQRUpload(room)}
-                          className="flex items-center gap-2 bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 text-sm"
-                          title="QR Code"
-                        >
-                          📱 Upload QR
-                        </button>
-                        <button
-                          onClick={() => handleViewAllTransactions(room)}
-                          className="flex items-center gap-2 bg-teal-600 text-white px-3 py-2 rounded-lg hover:bg-teal-700 text-sm"
-                          title="Xem giao dịch"
-                        >
-                          💰 Giao dịch ({(room.transactions && Object.values(room.transactions).flat().length) || 0})
-                        </button>
-                        <button
-                          onClick={() => handleEditRoom(room)}
-                          className="flex items-center gap-2 bg-yellow-600 text-white px-3 py-2 rounded-lg hover:bg-yellow-700 text-sm"
-                          title="Sửa Room"
-                        >
-                          <Edit2 size={16} />
-                          Sửa
-                        </button>
-                        <label className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg cursor-pointer hover:bg-blue-700 text-sm">
-                          <Upload size={16} />
-                          Nhập Excel
-                          <input
-                            type="file"
-                            accept=".xlsx,.xls"
-                            onChange={(e) => handleExcelUpload(e, room.id)}
-                            className="hidden"
-                          />
-                        </label>
-                        <button
-                          onClick={() => handleDeleteRoom(room.id)}
-                          className="flex items-center gap-2 bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 text-sm"
-                          title="Xóa Room"
-                        >
-                          <Trash2 size={16} />
-                          Xóa
-                        </button>
+  onClick={() => handleExportRoomToExcel(room)}
+  className="flex items-center justify-center gap-1 sm:gap-2 bg-green-600 text-white px-2 sm:px-3 py-2 rounded-lg hover:bg-green-700 text-xs sm:text-sm"
+  title="Xuất Excel"
+>
+  <Download size={14} className="sm:w-4 sm:h-4" />
+  <span className="hidden sm:inline">Xuất Excel</span>
+  <span className="sm:hidden">Excel</span>
+</button>
+
+<button
+  onClick={() => setShowQRUpload(room)}
+  className="flex items-center justify-center gap-1 sm:gap-2 bg-purple-600 text-white px-2 sm:px-3 py-2 rounded-lg hover:bg-purple-700 text-xs sm:text-sm"
+  title="QR Code"
+>
+  📱
+  <span className="hidden sm:inline">QR</span>
+</button>
+
+<button
+  onClick={() => handleViewAllTransactions(room)}
+  className="flex items-center justify-center gap-1 sm:gap-2 bg-teal-600 text-white px-2 sm:px-3 py-2 rounded-lg hover:bg-teal-700 text-xs sm:text-sm col-span-2 sm:col-span-1"
+  title="Xem giao dịch"
+>
+  💰
+  <span className="hidden sm:inline">Giao dịch</span>
+  <span className="sm:hidden">GD</span>
+  <span className="ml-1">({(room.transactions && Object.values(room.transactions).flat().length) || 0})</span>
+</button>
+
+<button
+  onClick={() => handleEditRoom(room)}
+  className="flex items-center justify-center gap-1 sm:gap-2 bg-yellow-600 text-white px-2 sm:px-3 py-2 rounded-lg hover:bg-yellow-700 text-xs sm:text-sm"
+  title="Sửa Room"
+>
+  <Edit2 size={14} className="sm:w-4 sm:h-4" />
+  <span className="hidden sm:inline">Sửa</span>
+</button>
+
+<label className="flex items-center justify-center gap-1 sm:gap-2 bg-blue-600 text-white px-2 sm:px-3 py-2 rounded-lg cursor-pointer hover:bg-blue-700 text-xs sm:text-sm">
+  <Upload size={14} className="sm:w-4 sm:h-4" />
+  <span className="hidden sm:inline">Import</span>
+  <input
+    type="file"
+    accept=".xlsx,.xls"
+    onChange={(e) => handleExcelUpload(e, room.id)}
+    className="hidden"
+  />
+</label>
+
+<button
+  onClick={() => handleDeleteRoom(room.id)}
+  className="flex items-center justify-center gap-1 sm:gap-2 bg-red-600 text-white px-2 sm:px-3 py-2 rounded-lg hover:bg-red-700 text-xs sm:text-sm"
+  title="Xóa Room"
+>
+  <Trash2 size={14} className="sm:w-4 sm:h-4" />
+  <span className="hidden sm:inline">Xóa</span>
+</button>
                       </div>
                     </div>
-                    <div className="flex gap-4 text-sm text-gray-600 mb-3">
+                    <div className="flex flex-wrap gap-3 md:gap-4 text-xs md:text-sm text-gray-600 mb-3">
                       <p>Số thành viên: <span className="font-semibold">{room.members.length}</span></p>
                      <p>Tổng điểm: <span className={`font-semibold ${
                         room.members.reduce((sum, m) => sum + (m.totalPoints || m.points[dateColumns[2]] || 0), 0) > 0 
@@ -1871,52 +1897,111 @@ const handleDeleteTransaction = (transaction, room) => {
                       </span></p>
                     </div>
                     
-                    {room.members.length > 0 && (
-                      <div className="mt-3 border-t pt-3">
-                        <p className="text-xs font-semibold text-gray-700 mb-2">
-                          Danh sách thành viên ({room.members.length}):
-                        </p>
-                        <div className="space-y-1 max-h-60 overflow-y-auto border rounded-lg bg-gray-50 p-2">
-                          {room.members.map(member => (
-                            <div key={member.id} className="flex items-center justify-between text-xs bg-white p-2 rounded hover:bg-blue-50 transition">
-                              <div className="flex-1">
-                                <span className="font-medium">{member.name}</span>
-                                <span className="text-gray-500 ml-2">(ID: {member.id})</span>
-                                <span className={`ml-2 font-semibold ${
-                                  (member.totalPoints || member.points[dateColumns[2]] || 0) > 0 ? 'text-green-600' : 
-                                  (member.totalPoints || member.points[dateColumns[2]] || 0) < 0 ? 'text-red-600' : 'text-gray-600'
-                                }`}>
-                                  {member.totalPoints || member.points[dateColumns[2]] || 0} điểm
-                                </span>
-                              </div>
-                              <div className="flex gap-1">
-                                <button
-                                  onClick={() => setShowMemberHistory({ member, room })}
-                                  className="text-blue-600 hover:bg-blue-50 p-1 rounded"
-                                  title="Xem lịch sử"
-                                >
-                                  <Edit2 size={14} />
-                                </button>
-                                <button
-                                  onClick={() => handleEditMember(member, room.id)}
-                                  className="text-yellow-600 hover:bg-yellow-50 p-1 rounded"
-                                  title="Sửa thông tin"
-                                >
-                                  <Settings size={14} />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteMember(member.id, room.id)}
-                                  className="text-red-600 hover:bg-red-50 p-1 rounded"
-                                  title="Xóa"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                 {room.members.length > 0 && (
+  <div className="mt-3 border-t pt-3">
+    {/* Title */}
+    <p className="text-xs font-semibold text-gray-700 mb-2">
+      Danh sách thành viên ({room.members.length}):
+    </p>
+    
+    {/* Container danh sách - có scroll */}
+    <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg bg-gray-50 p-2">
+      {room.members.map(member => (
+        <div 
+          key={member.id} 
+          className="bg-white rounded-lg hover:bg-blue-50 transition"
+        >
+          {/* DESKTOP: Hiển thị ngang */}
+          <div className="hidden sm:flex items-center justify-between text-xs p-2">
+            {/* Thông tin thành viên */}
+            <div className="flex-1">
+              <span className="font-medium">{member.name}</span>
+              <span className="text-gray-500 ml-2">(ID: {member.id})</span>
+              <span className={`ml-2 font-semibold ${
+                (member.totalPoints || member.points[dateColumns[2]] || 0) > 0 ? 'text-green-600' : 
+                (member.totalPoints || member.points[dateColumns[2]] || 0) < 0 ? 'text-red-600' : 'text-gray-600'
+              }`}>
+                {member.totalPoints || member.points[dateColumns[2]] || 0} điểm
+              </span>
+            </div>
+            
+            {/* Các nút chức năng */}
+            <div className="flex gap-1">
+              <button
+                onClick={() => setShowMemberHistory({ member, room })}
+                className="text-blue-600 hover:bg-blue-100 p-1.5 rounded"
+                title="Xem lịch sử"
+              >
+                <Edit2 size={14} />
+              </button>
+              <button
+                onClick={() => handleEditMember(member, room.id)}
+                className="text-yellow-600 hover:bg-yellow-100 p-1.5 rounded"
+                title="Sửa thông tin"
+              >
+                <Settings size={14} />
+              </button>
+              <button
+                onClick={() => handleDeleteMember(member.id, room.id)}
+                className="text-red-600 hover:bg-red-100 p-1.5 rounded"
+                title="Xóa"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+          
+          {/* MOBILE: Hiển thị dọc */}
+          <div className="sm:hidden p-3">
+            {/* Dòng 1: Tên và ID */}
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex-1">
+                <div className="font-medium text-sm">{member.name}</div>
+                <div className="text-gray-500 text-xs mt-0.5">ID: {member.id}</div>
+              </div>
+              
+              {/* Điểm - nổi bật */}
+              <div className={`text-right font-bold text-base ${
+                (member.totalPoints || member.points[dateColumns[2]] || 0) > 0 ? 'text-green-600' : 
+                (member.totalPoints || member.points[dateColumns[2]] || 0) < 0 ? 'text-red-600' : 'text-gray-600'
+              }`}>
+                {member.totalPoints || member.points[dateColumns[2]] || 0}
+                <div className="text-xs font-normal text-gray-500">điểm</div>
+              </div>
+            </div>
+            
+            {/* Dòng 2: Các nút chức năng - FULL WIDTH */}
+            <div className="grid grid-cols-3 gap-1.5 mt-2">
+              <button
+                onClick={() => setShowMemberHistory({ member, room })}
+                className="flex flex-col items-center justify-center bg-blue-50 text-blue-600 py-2 rounded text-xs hover:bg-blue-100"
+              >
+                <Edit2 size={16} />
+                <span className="mt-1">Lịch sử</span>
+              </button>
+              
+              <button
+                onClick={() => handleEditMember(member, room.id)}
+                className="flex flex-col items-center justify-center bg-yellow-50 text-yellow-600 py-2 rounded text-xs hover:bg-yellow-100"
+              >
+                <Settings size={16} />
+                <span className="mt-1">Sửa</span>
+              </button>
+              
+              <button
+                onClick={() => handleDeleteMember(member.id, room.id)}
+                className="flex flex-col items-center justify-center bg-red-50 text-red-600 py-2 rounded text-xs hover:bg-red-100"
+              >
+                <Trash2 size={16} />
+                <span className="mt-1">Xóa</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
                   </div>
                 ))}
 
