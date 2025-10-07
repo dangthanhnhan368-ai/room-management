@@ -305,6 +305,22 @@ useEffect(() => {
   return () => clearTimeout(timer);
 }, [rooms, isFirebaseAuthenticated, isLoadingFromFirebase]);
 
+useEffect(() => {
+  if (rooms.length === 0) return;
+  
+  const lastMigrationDate = localStorage.getItem('lastMigrationDate');
+  const today = new Date().toDateString();
+  
+  // Nếu chưa migrate hôm nay
+  if (lastMigrationDate !== today) {
+    console.log('🔄 Migrating points to new day...');
+    const migratedRooms = migratePointsToNewDay(rooms, dateColumns);
+    setRooms(migratedRooms);
+    localStorage.setItem('lastMigrationDate', today);
+    console.log('✅ Points migrated successfully');
+  }
+}, [rooms.length]); // Chỉ chạy khi có rooms
+
   const currentDate = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   const getDateColumns = () => {
@@ -505,6 +521,27 @@ const handleAdminLogin = async () => {
     return null;
   };
 
+  const migratePointsToNewDay = (rooms, dateColumns) => {
+  return rooms.map(room => ({
+    ...room,
+    members: room.members.map(member => {
+      const newPoints = { ...member.points };
+      const latestDate = dateColumns[2]; // Ngày mới nhất
+      
+      // Nếu chưa có điểm cho ngày mới, copy từ ngày cũ
+      if (newPoints[latestDate] === undefined) {
+        const previousDate = dateColumns[1]; // Ngày hôm qua
+        newPoints[latestDate] = newPoints[previousDate] || 0;
+      }
+      
+      return {
+        ...member,
+        points: newPoints
+      };
+    })
+  }));
+  };
+
 const handleAddTransaction = () => {
   const { roomId, date, delivererId, receiverId, price, description, manualPoints, isAddPointTransaction, isFreeTransaction } = transactionForm;
   
@@ -567,6 +604,9 @@ const handleAddTransaction = () => {
 
   const deliverer = room.members.find(m => m.id === actualDelivererId);
   const receiver = room.members.find(m => m.id === parseInt(receiverId));
+  const currentDate = dateColumns[2];
+  if (!deliverer.points[currentDate]) deliverer.points[currentDate] = 0;
+  if (!receiver.points[currentDate]) receiver.points[currentDate] = 0;
 
   if (!deliverer || !receiver) {
     alert('Không tìm thấy thành viên!');
@@ -625,13 +665,17 @@ const handleAddTransaction = () => {
     newTransactions[receiver.id] = [...newTransactions[receiver.id], receiverTransaction];
 
     const newMembers = r.members.map(m => {
+      // Đảm bảo có điểm cho ngày hiện tại
+      const currentDate = dateColumns[2];
+      if (!m.points[currentDate]) m.points[currentDate] = 0;
+      
       if (m.id === deliverer.id && !isAddPointTransaction && !isFreeTransaction) {
         // Chỉ cộng điểm cho người giao trong giao dịch thường
         return {
           ...m,
           points: {
             ...m.points,
-            [dateColumns[2]]: (m.points[dateColumns[2]] || 0) + points
+            [currentDate]: (m.points[currentDate] || 0) + points
           }
         };
       }
@@ -642,7 +686,7 @@ const handleAddTransaction = () => {
           ...m,
           points: {
             ...m.points,
-            [dateColumns[2]]: (m.points[dateColumns[2]] || 0) + pointChange
+            [currentDate]: (m.points[currentDate] || 0) + pointChange
           }
         };
       }
