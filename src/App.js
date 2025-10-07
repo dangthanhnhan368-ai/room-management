@@ -1060,24 +1060,28 @@ const handleAddTransaction = () => {
     setShowAllTransactions(true);
   };
 
-  const getAllTransactionsFlat = (room) => {
-    const allTransactions = [];
-    Object.entries(room.transactions).forEach(([memberId, transactions]) => {
-      const member = room.members.find(m => m.id === parseInt(memberId));
-      transactions.forEach(trans => {
-        allTransactions.push({
-          ...trans,
-          memberId: parseInt(memberId),
-          memberName: member?.name || `ID: ${memberId}`
-        });
+const getAllTransactionsFlat = (room) => {
+  const allTransactions = [];
+  Object.entries(room.transactions).forEach(([memberId, transactions]) => {
+    const member = room.members.find(m => m.id === parseInt(memberId));
+    transactions.forEach(trans => {
+      allTransactions.push({
+        ...trans,
+        memberId: parseInt(memberId),
+        memberName: member?.name || `ID: ${memberId}`
       });
     });
-    return allTransactions.sort((a, b) => {
-      const dateA = a.date.split('/').reverse().join('');
-      const dateB = b.date.split('/').reverse().join('');
-      return dateB.localeCompare(dateA);
-    });
-  };
+  });
+  
+  // Sắp xếp theo ngày mới nhất lên trên
+  return allTransactions.sort((a, b) => {
+    const parseDate = (dateStr) => {
+      const [day, month] = dateStr.split('/');
+      return new Date(2024, parseInt(month) - 1, parseInt(day));
+    };
+    return parseDate(b.date) - parseDate(a.date);
+  });
+};
 
   const handleEditTransaction = (transaction, room) => {
     setEditingTransaction({ ...transaction, roomId: room.id });
@@ -3317,8 +3321,17 @@ const handleDeleteTransaction = (transaction, room) => {
                 </thead>
                 <tbody>
                   {selectedRoom.transactions[selectedMember.id]?.length > 0 ? (
-                    selectedRoom.transactions[selectedMember.id].map((trans, index) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
+                  [...selectedRoom.transactions[selectedMember.id]]
+                    .sort((a, b) => {
+                      // Chuyển đổi định dạng dd/mm sang yyyy-mm-dd để so sánh
+                      const parseDate = (dateStr) => {
+                        const [day, month] = dateStr.split('/');
+                        return new Date(2024, parseInt(month) - 1, parseInt(day));
+                      };
+                      return parseDate(b.date) - parseDate(a.date); // Mới nhất lên trên
+                    })
+                    .map((trans, index) => (
+                    <tr key={index} className="border-b hover:bg-gray-50">
                         <td className="px-3 py-2 text-sm">{trans.date}</td>
                         <td className="px-3 py-2 text-sm">{trans.description}</td>
                         <td className="px-3 py-2 text-sm text-right">
@@ -3352,7 +3365,16 @@ const handleDeleteTransaction = (transaction, room) => {
               {/* Mobile View - Cards */}
               <div className="md:hidden space-y-3 p-4">
                 {selectedRoom.transactions[selectedMember.id]?.length > 0 ? (
-                  selectedRoom.transactions[selectedMember.id].map((trans, index) => (
+                  [...selectedRoom.transactions[selectedMember.id]]
+                    .sort((a, b) => {
+                      // Chuyển đổi định dạng dd/mm sang yyyy-mm-dd để so sánh
+                      const parseDate = (dateStr) => {
+                        const [day, month] = dateStr.split('/');
+                        return new Date(2024, parseInt(month) - 1, parseInt(day));
+                      };
+                      return parseDate(b.date) - parseDate(a.date); // Mới nhất lên trên
+                    })
+                    .map((trans, index) => (
                     <div key={index} className="bg-white border rounded-lg p-4 shadow-sm">
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-sm font-semibold text-gray-700">{trans.date}</span>
