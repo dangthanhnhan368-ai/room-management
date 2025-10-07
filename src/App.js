@@ -1353,21 +1353,20 @@ const handleDeleteTransaction = (transaction, room) => {
     alert('Đã xóa tất cả dữ liệu và reset về mặc định!');
   };
 
-  const handleExportRoomToExcel = (room) => {
-    const wb = XLSX.utils.book_new();
+    const handleExportRoomToExcel = (room) => {
+      const wb = XLSX.utils.book_new();
 
-    // Sheet 1: Tổng hợp thành viên
-    const summaryData = room.members.map(member => ({
-      'ID': member.id,
-      'Tên Thành Viên': member.name,
-      [dateColumns[0]]: member.points[dateColumns[0]] || 0,
-      [dateColumns[1]]: member.points[dateColumns[1]] || 0,
-      [dateColumns[2]]: member.points[dateColumns[2]] || 0,
-      'Hạn thu KT': member.deadline,
-      'Ghi chú': member.note
-    }));
-    const ws1 = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, ws1, 'Tổng Hợp');
+      // Sheet 1: Tổng hợp thành viên (format giống file import)
+      const summaryData = room.members.map(member => ({
+        'STT': member.id,
+        'Tên Thành Viên': member.name,
+        'Gia hạn phí': member.deadline || '',
+        'Quỹ': '', // Cột trống
+        'Điểm mua': '', // Cột trống
+        'Điểm Tồn': member.totalPoints || member.points[dateColumns[2]] || 0
+      }));
+      const ws1 = XLSX.utils.json_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, ws1, 'DS'); // ĐỔI TÊN SHEET từ 'Tổng Hợp' sang 'DS'
 
     // Sheet 2+: Lịch sử từng thành viên (tên sheet = ID)
     room.members.forEach(member => {
@@ -1397,13 +1396,12 @@ const handleDeleteTransaction = (transaction, room) => {
 
     rooms.forEach((room, index) => {
       const summaryData = room.members.map(member => ({
-        'ID': member.id,
+        'STT': member.id,
         'Tên Thành Viên': member.name,
-        [dateColumns[0]]: member.points[dateColumns[0]] || 0,
-        [dateColumns[1]]: member.points[dateColumns[1]] || 0,
-        [dateColumns[2]]: member.points[dateColumns[2]] || 0,
-        'Hạn thu KT': member.deadline,
-        'Ghi chú': member.note
+        'Gia hạn phí': member.deadline || '',
+        'Quỹ': '',
+        'Điểm mua': '',
+        'Điểm Tồn': member.totalPoints || member.points[dateColumns[2]] || 0
       }));
       
       const ws = XLSX.utils.json_to_sheet(summaryData);
