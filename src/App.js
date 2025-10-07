@@ -1060,7 +1060,7 @@ const handleAddTransaction = () => {
     setShowAllTransactions(true);
   };
 
-  const getAllTransactionsFlat = (room) => {
+const getAllTransactionsFlat = (room) => {
   const allTransactions = [];
   Object.entries(room.transactions).forEach(([memberId, transactions]) => {
     const member = room.members.find(m => m.id === parseInt(memberId));
@@ -1091,13 +1091,6 @@ const handleAddTransaction = () => {
     }
     
     return dateCompare;
-  });
-};
-  
-  // Sắp xếp theo thứ tự tạo giao dịch (giao dịch mới tạo lên trên)
-  return allTransactions.sort((a, b) => {
-    // So sánh ngược để giao dịch được thêm sau cùng lên trên
-    return b.originalIndex - a.originalIndex;
   });
 };
 
@@ -3432,5 +3425,5 @@ const handleDeleteTransaction = (transaction, room) => {
     </div>
   );
 ;
-
+}
 export default RoomManagementSystem;
