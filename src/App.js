@@ -634,6 +634,7 @@ const handleAddTransaction = () => {
           alert('Điểm thủ công không hợp lệ!');
           return;
         }
+        points = Math.round(points * 10) / 10;
       }
     }
 
@@ -1057,8 +1058,8 @@ const handleDeleteTransaction = (transaction, room) => {
   setRooms(rooms.map(r => {
     if (r.id !== room.id) return r;
 
-    // Tìm deliverer và receiver dựa vào role
-    let deliverer, receiver, delivererTransaction, receiverTransaction;
+    // Bước 1: Tìm deliverer và receiver dựa vào role
+    let deliverer, receiver;
     
     if (transaction.role === 'Giao' || transaction.role === 'Giao Free' || transaction.role === 'Trừ điểm') {
       deliverer = room.members.find(m => m.name === transaction.memberName);
@@ -1068,44 +1069,74 @@ const handleDeleteTransaction = (transaction, room) => {
       receiver = room.members.find(m => m.name === transaction.memberName);
     }
 
-    if (!deliverer || !receiver) return r;
+    if (!deliverer || !receiver) {
+      console.error('Cannot find deliverer or receiver');
+      return r;
+    }
 
-    // Tìm giao dịch từ cả 2 phía để lấy đúng giá trị điểm
+    // Bước 2: Tìm giao dịch GỐC từ cả 2 phía
     const delivererTransactions = r.transactions[deliverer.id] || [];
     const receiverTransactions = r.transactions[receiver.id] || [];
 
-    delivererTransaction = delivererTransactions.find(t => 
+    const delivererTransaction = delivererTransactions.find(t => 
       t.date === transaction.date && 
       t.price === transaction.price && 
       t.description === transaction.description &&
       t.partner === receiver.name
     );
 
-    receiverTransaction = receiverTransactions.find(t => 
+    const receiverTransaction = receiverTransactions.find(t => 
       t.date === transaction.date && 
       t.price === transaction.price && 
       t.description === transaction.description &&
       t.partner === deliverer.name
     );
 
-    if (!delivererTransaction || !receiverTransaction) return r;
+    if (!delivererTransaction || !receiverTransaction) {
+      console.error('Cannot find matching transactions');
+      return r;
+    }
 
-    // Xóa giao dịch khỏi cả 2 bên
+    console.log('🔍 Found transactions:', {
+      deliverer: delivererTransaction,
+      receiver: receiverTransaction
+    });
+
+    // Bước 3: Xóa giao dịch CHÍNH XÁC khỏi cả 2 bên
     const newTransactions = { ...r.transactions };
     
     newTransactions[deliverer.id] = delivererTransactions.filter(t => 
-      !(t.date === transaction.date && t.price === transaction.price && t.description === transaction.description && t.partner === receiver.name)
+      !(
+        t.date === transaction.date && 
+        t.price === transaction.price && 
+        t.description === transaction.description && 
+        t.partner === receiver.name
+      )
     );
     
     newTransactions[receiver.id] = receiverTransactions.filter(t => 
-      !(t.date === transaction.date && t.price === transaction.price && t.description === transaction.description && t.partner === deliverer.name)
+      !(
+        t.date === transaction.date && 
+        t.price === transaction.price && 
+        t.description === transaction.description && 
+        t.partner === deliverer.name
+      )
     );
 
-    // HOÁN NGƯỢC logic cộng/trừ điểm
+    console.log('🗑️ After deletion:', {
+      delivererCount: newTransactions[deliverer.id].length,
+      receiverCount: newTransactions[receiver.id].length
+    });
+
+    // Bước 4: HOÁN NGƯỢC điểm
     const currentDate = dateColumns[2];
+    const isFreeTransaction = delivererTransaction.role === 'Giao Free' || receiverTransaction.role === 'Nhận Free';
+
     const newMembers = r.members.map(m => {
-      // Xác định loại giao dịch
-      const isFreeTransaction = delivererTransaction.role === 'Giao Free' || receiverTransaction.role === 'Nhận Free';
+      // Khởi tạo nếu chưa có
+      if (m.totalPoints === undefined) {
+        m.totalPoints = m.points[currentDate] || 0;
+      }
       
       if (isFreeTransaction) {
         // Giao Free: không làm gì
@@ -1113,9 +1144,16 @@ const handleDeleteTransaction = (transaction, room) => {
       }
       
       if (m.id === deliverer.id) {
-        // Hoán ngược: TRỪ đi số điểm đã cộng
-        const pointsToRevert = -delivererTransaction.points; // Đảo dấu điểm của deliverer
-        const newTotal = (m.totalPoints || 0) + pointsToRevert;
+        // Hoán ngược điểm của deliverer
+        const pointsToRevert = -delivererTransaction.points;
+        const newTotal = m.totalPoints + pointsToRevert;
+        
+        console.log(`🔄 Deliverer ${m.name}:`, {
+          oldTotal: m.totalPoints,
+          pointsToRevert,
+          newTotal
+        });
+        
         return {
           ...m,
           points: {
@@ -1127,9 +1165,16 @@ const handleDeleteTransaction = (transaction, room) => {
       }
       
       if (m.id === receiver.id) {
-        // Hoán ngược: TRỪ đi số điểm đã cộng (hoặc cộng lại số điểm đã trừ)
-        const pointsToRevert = -receiverTransaction.points; // Đảo dấu điểm của receiver
-        const newTotal = (m.totalPoints || 0) + pointsToRevert;
+        // Hoán ngược điểm của receiver
+        const pointsToRevert = -receiverTransaction.points;
+        const newTotal = m.totalPoints + pointsToRevert;
+        
+        console.log(`🔄 Receiver ${m.name}:`, {
+          oldTotal: m.totalPoints,
+          pointsToRevert,
+          newTotal
+        });
+        
         return {
           ...m,
           points: {
@@ -1151,9 +1196,13 @@ const handleDeleteTransaction = (transaction, room) => {
   }));
 
   alert('Đã xóa giao dịch thành công!');
+  
+  // Cập nhật selectedRoomTransactions nếu đang mở
   if (selectedRoomTransactions) {
     const updatedRoom = rooms.find(r => r.id === room.id);
-    setSelectedRoomTransactions(updatedRoom);
+    if (updatedRoom) {
+      setSelectedRoomTransactions(updatedRoom);
+    }
   }
 };
 
