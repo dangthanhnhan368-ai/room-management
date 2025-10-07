@@ -212,9 +212,13 @@ const RoomManagementSystem = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(null);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [delivererSearch, setDelivererSearch] = useState('');
+  const [receiverSearch, setReceiverSearch] = useState('');
+  const [showDelivererDropdown, setShowDelivererDropdown] = useState(false);
+  const [showReceiverDropdown, setShowReceiverDropdown] = useState(false);
   //const [showMemberHistory, setShowMemberHistory] = useState(null);
   //const [editingHistoryTransaction, setEditingHistoryTransaction] = useState(null);
-// Admin shortcut: Ctrl + Shift + X
+// Ctrl + Shift + X
 useEffect(() => {
   const handleKeyPress = (e) => {
     if (e.ctrlKey && e.shiftKey && e.key === 'X') {
@@ -234,6 +238,22 @@ useEffect(() => {
     }
   }
 }, [rooms, currentView]);
+// Đóng dropdown khi click bên ngoài
+useEffect(() => {
+  const handleClickOutside = (event) => {
+    const target = event.target;
+    // Kiểm tra nếu click không phải trong dropdown
+    if (!target.closest('.relative')) {
+      setShowDelivererDropdown(false);
+      setShowReceiverDropdown(false);
+    }
+  };
+
+  if (showDelivererDropdown || showReceiverDropdown) {
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }
+}, [showDelivererDropdown, showReceiverDropdown]);
   
 // Tăng visit counter trên Firebase (1 lần mỗi session)
 useEffect(() => {
@@ -353,6 +373,16 @@ useEffect(() => {
 
   const currentDate = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
+  // Hàm lọc thành viên theo tên
+const filterMembers = (members, searchTerm) => {
+  if (!searchTerm || searchTerm.trim() === '') return members;
+  
+  const search = searchTerm.toLowerCase().trim();
+  return members.filter(member => 
+    member.name.toLowerCase().includes(search) ||
+    member.id.toString().includes(search)
+  );
+};
   const getDateColumns = () => {
     const today = new Date();
     const dates = [];
@@ -752,7 +782,7 @@ const handleAddTransaction = () => {
   }));
 
   // Reset form...
-  setTransactionForm({
+ setTransactionForm({
     roomId: null,
     date: new Date().toISOString().split('T')[0],
     delivererId: '',
@@ -762,8 +792,12 @@ const handleAddTransaction = () => {
     manualPoints: '',
     isAddPointTransaction: false,
     isFreeTransaction: false
-  });
-  setShowTransactionForm(false);
+    });
+    setShowTransactionForm(false);
+    setDelivererSearch('');
+    setReceiverSearch('');
+    setShowDelivererDropdown(false);
+    setShowReceiverDropdown(false);
   
   let successMsg;
   if (isFreeTransaction) {
@@ -1989,19 +2023,77 @@ const handleDeleteTransaction = (transaction, room) => {
   <label className="block text-sm font-semibold text-gray-700 mb-2">
     Người Giao (Deliverer) <span className="text-red-500">*</span>
   </label>
-  <select
-    value={transactionForm.delivererId}
-    onChange={(e) => setTransactionForm({...transactionForm, delivererId: e.target.value})}
-    disabled={!transactionForm.roomId}
-    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-  >
-    <option value="">-- Chọn người giao --</option>
-    {transactionForm.roomId && rooms.find(r => r.id === transactionForm.roomId)?.members.map(member => (
-      <option key={member.id} value={member.id}>
-        {member.name} (ID: {member.id})
-      </option>
-    ))}
-  </select>
+  <div className="relative">
+    <input
+      type="text"
+      value={delivererSearch}
+      onChange={(e) => {
+        setDelivererSearch(e.target.value);
+        setShowDelivererDropdown(true);
+        if (transactionForm.delivererId) {
+          setTransactionForm({...transactionForm, delivererId: ''});
+        }
+      }}
+      onFocus={() => setShowDelivererDropdown(true)}
+      placeholder="Tìm kiếm người giao..."
+      disabled={!transactionForm.roomId}
+      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+    />
+    <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+    
+    {showDelivererDropdown && transactionForm.roomId && (
+      <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+        {filterMembers(
+          rooms.find(r => r.id === transactionForm.roomId)?.members || [],
+          delivererSearch
+        ).length > 0 ? (
+          filterMembers(
+            rooms.find(r => r.id === transactionForm.roomId)?.members || [],
+            delivererSearch
+          ).map(member => (
+            <div
+              key={member.id}
+              onClick={() => {
+                setTransactionForm({...transactionForm, delivererId: member.id.toString()});
+                setDelivererSearch(`${member.name} (ID: ${member.id})`);
+                setShowDelivererDropdown(false);
+              }}
+              className={`px-4 py-2 cursor-pointer hover:bg-blue-50 ${
+                transactionForm.delivererId === member.id.toString() ? 'bg-blue-100' : ''
+              }`}
+            >
+              <div className="font-medium">{member.name}</div>
+              <div className="text-xs text-gray-500">
+                ID: {member.id} | Điểm: {member.totalPoints || member.points[dateColumns[2]] || 0}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="px-4 py-3 text-center text-gray-500 text-sm">
+            Không tìm thấy thành viên
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+  
+  {transactionForm.delivererId && (
+    <div className="mt-2 flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+      <span className="text-sm text-green-800">
+        ✓ Đã chọn: {rooms.find(r => r.id === transactionForm.roomId)?.members.find(m => m.id === parseInt(transactionForm.delivererId))?.name}
+      </span>
+      <button
+        onClick={() => {
+          setTransactionForm({...transactionForm, delivererId: ''});
+          setDelivererSearch('');
+        }}
+        className="text-red-600 hover:text-red-800 text-xs"
+      >
+        ✕ Xóa
+      </button>
+    </div>
+  )}
+  
   {transactionForm.isAddPointTransaction && (
     <p className="text-xs text-purple-700 mt-1">
       💡 Giao dịch cộng điểm: Người giao sẽ bị TRỪ điểm
@@ -2011,23 +2103,80 @@ const handleDeleteTransaction = (transaction, room) => {
 
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Người Nhận (Receiver) <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={transactionForm.receiverId}
-                    onChange={(e) => setTransactionForm({...transactionForm, receiverId: e.target.value})}
-                    disabled={!transactionForm.roomId}
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
-                  >
-                    <option value="">-- Chọn người nhận --</option>
-                    {transactionForm.roomId && rooms.find(r => r.id === transactionForm.roomId)?.members.map(member => (
-                      <option key={member.id} value={member.id}>
-                        {member.name} (ID: {member.id})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+  <label className="block text-sm font-semibold text-gray-700 mb-2">
+    Người Nhận (Receiver) <span className="text-red-500">*</span>
+  </label>
+  <div className="relative">
+    <input
+      type="text"
+      value={receiverSearch}
+      onChange={(e) => {
+        setReceiverSearch(e.target.value);
+        setShowReceiverDropdown(true);
+        if (transactionForm.receiverId) {
+          setTransactionForm({...transactionForm, receiverId: ''});
+        }
+      }}
+      onFocus={() => setShowReceiverDropdown(true)}
+      placeholder="Tìm kiếm người nhận..."
+      disabled={!transactionForm.roomId}
+      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+    />
+    <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+    
+    {showReceiverDropdown && transactionForm.roomId && (
+      <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+        {filterMembers(
+          rooms.find(r => r.id === transactionForm.roomId)?.members || [],
+          receiverSearch
+        ).length > 0 ? (
+          filterMembers(
+            rooms.find(r => r.id === transactionForm.roomId)?.members || [],
+            receiverSearch
+          ).map(member => (
+            <div
+              key={member.id}
+              onClick={() => {
+                setTransactionForm({...transactionForm, receiverId: member.id.toString()});
+                setReceiverSearch(`${member.name} (ID: ${member.id})`);
+                setShowReceiverDropdown(false);
+              }}
+              className={`px-4 py-2 cursor-pointer hover:bg-blue-50 ${
+                transactionForm.receiverId === member.id.toString() ? 'bg-blue-100' : ''
+              }`}
+            >
+              <div className="font-medium">{member.name}</div>
+              <div className="text-xs text-gray-500">
+                ID: {member.id} | Điểm: {member.totalPoints || member.points[dateColumns[2]] || 0}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="px-4 py-3 text-center text-gray-500 text-sm">
+            Không tìm thấy thành viên
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+  
+  {transactionForm.receiverId && (
+    <div className="mt-2 flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+      <span className="text-sm text-blue-800">
+        ✓ Đã chọn: {rooms.find(r => r.id === transactionForm.roomId)?.members.find(m => m.id === parseInt(transactionForm.receiverId))?.name}
+      </span>
+      <button
+        onClick={() => {
+          setTransactionForm({...transactionForm, receiverId: ''});
+          setReceiverSearch('');
+        }}
+        className="text-red-600 hover:text-red-800 text-xs"
+      >
+        ✕ Xóa
+      </button>
+    </div>
+  )}
+</div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -2131,6 +2280,10 @@ const handleDeleteTransaction = (transaction, room) => {
                     onClick={() => {
                       setShowTransactionForm(false);
                       setEditingTransaction(null);
+                      setDelivererSearch('');
+                      setReceiverSearch('');
+                      setShowDelivererDropdown(false);
+                      setShowReceiverDropdown(false);
                     }}
                     className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg hover:bg-gray-300 transition font-semibold"
                   >
