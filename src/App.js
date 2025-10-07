@@ -1051,92 +1051,111 @@ const handleAddTransaction = () => {
   };
 
 const handleDeleteTransaction = (transaction, room) => {
-    const confirm = window.confirm(`Bạn có chắc chắn muốn xóa giao dịch này?\n\nNgày: ${transaction.date}\nGiá trị: ${transaction.price.toLocaleString('vi-VN')} VND`);
-    if (!confirm) return;
+  const confirm = window.confirm(`Bạn có chắc chắn muốn xóa giao dịch này?\n\nNgày: ${transaction.date}\nGiá trị: ${transaction.price.toLocaleString('vi-VN')} VND`);
+  if (!confirm) return;
 
-    setRooms(rooms.map(r => {
-      if (r.id !== room.id) return r;
+  setRooms(rooms.map(r => {
+    if (r.id !== room.id) return r;
 
-      // Tìm deliverer và receiver dựa vào role
-      let deliverer, receiver;
-      if (transaction.role === 'Giao' || transaction.role === 'Giao Free' || transaction.role === 'Trừ điểm') {
-        deliverer = room.members.find(m => m.name === transaction.memberName);
-        receiver = room.members.find(m => m.name === transaction.partner);
-      } else {
-        deliverer = room.members.find(m => m.name === transaction.partner);
-        receiver = room.members.find(m => m.name === transaction.memberName);
-      }
-
-      if (!deliverer || !receiver) return r;
-
-      // Xóa giao dịch khỏi cả 2 bên
-      const newTransactions = { ...r.transactions };
-      
-      newTransactions[deliverer.id] = newTransactions[deliverer.id].filter(t => 
-        !(t.date === transaction.date && t.price === transaction.price && t.description === transaction.description)
-      );
-      
-      newTransactions[receiver.id] = newTransactions[receiver.id].filter(t => 
-        !(t.date === transaction.date && t.price === transaction.price && t.description === transaction.description)
-      );
-
-      // HOÁN NGƯỢC logic cộng/trừ điểm
-      const currentDate = dateColumns[2];
-      const newMembers = r.members.map(m => {
-        // Xác định loại giao dịch
-        const isFreeTransaction = transaction.role === 'Giao Free' || transaction.role === 'Nhận Free';
-        const isAddPointTransaction = transaction.role === 'Trừ điểm' || transaction.role === 'Cộng điểm';
-        
-        if (isFreeTransaction) {
-          // Giao Free: không làm gì
-          return m;
-        }
-        
-        if (m.id === deliverer.id) {
-          // Hoán ngược: Nếu lúc thêm là +points, lúc xóa là -points
-          const pointsToRevert = -transaction.points; // Đảo dấu
-          const newTotal = (m.totalPoints || 0) + pointsToRevert;
-          return {
-            ...m,
-            points: {
-              ...m.points,
-              [currentDate]: newTotal
-            },
-            totalPoints: newTotal
-          };
-        }
-        
-        if (m.id === receiver.id) {
-          // Hoán ngược: Nếu lúc thêm là -points, lúc xóa là +points
-          // transaction.points ở receiver đã là âm (hoặc dương nếu cộng điểm)
-          const pointsToRevert = -transaction.points; // Đảo dấu
-          const newTotal = (m.totalPoints || 0) + pointsToRevert;
-          return {
-            ...m,
-            points: {
-              ...m.points,
-              [currentDate]: newTotal
-            },
-            totalPoints: newTotal
-          };
-        }
-        
-        return m;
-      });
-
-      return {
-        ...r,
-        transactions: newTransactions,
-        members: newMembers
-      };
-    }));
-
-    alert('Đã xóa giao dịch thành công!');
-    if (selectedRoomTransactions) {
-      const updatedRoom = rooms.find(r => r.id === room.id);
-      setSelectedRoomTransactions(updatedRoom);
+    // Tìm deliverer và receiver dựa vào role
+    let deliverer, receiver, delivererTransaction, receiverTransaction;
+    
+    if (transaction.role === 'Giao' || transaction.role === 'Giao Free' || transaction.role === 'Trừ điểm') {
+      deliverer = room.members.find(m => m.name === transaction.memberName);
+      receiver = room.members.find(m => m.name === transaction.partner);
+    } else {
+      deliverer = room.members.find(m => m.name === transaction.partner);
+      receiver = room.members.find(m => m.name === transaction.memberName);
     }
-  };
+
+    if (!deliverer || !receiver) return r;
+
+    // Tìm giao dịch từ cả 2 phía để lấy đúng giá trị điểm
+    const delivererTransactions = r.transactions[deliverer.id] || [];
+    const receiverTransactions = r.transactions[receiver.id] || [];
+
+    delivererTransaction = delivererTransactions.find(t => 
+      t.date === transaction.date && 
+      t.price === transaction.price && 
+      t.description === transaction.description &&
+      t.partner === receiver.name
+    );
+
+    receiverTransaction = receiverTransactions.find(t => 
+      t.date === transaction.date && 
+      t.price === transaction.price && 
+      t.description === transaction.description &&
+      t.partner === deliverer.name
+    );
+
+    if (!delivererTransaction || !receiverTransaction) return r;
+
+    // Xóa giao dịch khỏi cả 2 bên
+    const newTransactions = { ...r.transactions };
+    
+    newTransactions[deliverer.id] = delivererTransactions.filter(t => 
+      !(t.date === transaction.date && t.price === transaction.price && t.description === transaction.description && t.partner === receiver.name)
+    );
+    
+    newTransactions[receiver.id] = receiverTransactions.filter(t => 
+      !(t.date === transaction.date && t.price === transaction.price && t.description === transaction.description && t.partner === deliverer.name)
+    );
+
+    // HOÁN NGƯỢC logic cộng/trừ điểm
+    const currentDate = dateColumns[2];
+    const newMembers = r.members.map(m => {
+      // Xác định loại giao dịch
+      const isFreeTransaction = delivererTransaction.role === 'Giao Free' || receiverTransaction.role === 'Nhận Free';
+      
+      if (isFreeTransaction) {
+        // Giao Free: không làm gì
+        return m;
+      }
+      
+      if (m.id === deliverer.id) {
+        // Hoán ngược: TRỪ đi số điểm đã cộng
+        const pointsToRevert = -delivererTransaction.points; // Đảo dấu điểm của deliverer
+        const newTotal = (m.totalPoints || 0) + pointsToRevert;
+        return {
+          ...m,
+          points: {
+            ...m.points,
+            [currentDate]: newTotal
+          },
+          totalPoints: newTotal
+        };
+      }
+      
+      if (m.id === receiver.id) {
+        // Hoán ngược: TRỪ đi số điểm đã cộng (hoặc cộng lại số điểm đã trừ)
+        const pointsToRevert = -receiverTransaction.points; // Đảo dấu điểm của receiver
+        const newTotal = (m.totalPoints || 0) + pointsToRevert;
+        return {
+          ...m,
+          points: {
+            ...m.points,
+            [currentDate]: newTotal
+          },
+          totalPoints: newTotal
+        };
+      }
+      
+      return m;
+    });
+
+    return {
+      ...r,
+      transactions: newTransactions,
+      members: newMembers
+    };
+  }));
+
+  alert('Đã xóa giao dịch thành công!');
+  if (selectedRoomTransactions) {
+    const updatedRoom = rooms.find(r => r.id === room.id);
+    setSelectedRoomTransactions(updatedRoom);
+  }
+};
 
   const handleUploadQR = async (event, roomId) => {
   const file = event.target.files[0];
