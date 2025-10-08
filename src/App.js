@@ -1060,6 +1060,7 @@ let delivererRole, receiverRole, delivererPoints, receiverPoints;
 
 const getAllTransactionsFlat = (room) => {
   const allTransactions = [];
+  const processedPairs = new Set(); // Theo dõi các cặp đã xử lý
   
   Object.entries(room.transactions).forEach(([memberId, transactions]) => {
     const member = room.members.find(m => m.id === parseInt(memberId));
@@ -1072,24 +1073,80 @@ const getAllTransactionsFlat = (room) => {
     });
   });
   
-  // Sắp xếp: Ngày mới nhất trước, cùng ngày thì giao dịch cuối mảng lên trên
-  return allTransactions.sort((a, b) => {
-    const parseDate = (dateStr) => {
-      const [day, month] = dateStr.split('/');
-      return new Date(2024, parseInt(month) - 1, parseInt(day));
-    };
+  // Tạo key duy nhất cho mỗi giao dịch
+  const createTransKey = (trans) => {
+    return `${trans.date}_${trans.description}_${Math.abs(trans.price)}_${trans.memberName}_${trans.partner}`;
+  };
+  
+  // Nhóm các giao dịch thành cặp
+  const groupedTransactions = [];
+  const usedIndices = new Set();
+  
+  allTransactions.forEach((trans, index) => {
+    if (usedIndices.has(index)) return;
     
-    const dateCompare = parseDate(b.date) - parseDate(a.date);
+    // Tìm giao dịch cặp đôi
+    const pairIndex = allTransactions.findIndex((t, i) => {
+      if (i <= index || usedIndices.has(i)) return false;
+      
+      // Kiểm tra điều kiện cặp đôi
+      const isSameTransaction = 
+        t.date === trans.date &&
+        t.description === trans.description &&
+        Math.abs(t.price - trans.price) < 0.01 &&
+        t.memberName === trans.partner &&
+        t.partner === trans.memberName;
+      
+      return isSameTransaction;
+    });
     
-    // Nếu khác ngày, ưu tiên ngày mới
-    if (dateCompare !== 0) {
-      return dateCompare;
+    if (pairIndex !== -1) {
+      // Có cặp - thêm cả 2 giao dịch theo thứ tự: Giao/Cộng điểm trước, Nhận/Trừ điểm sau
+      const pair = allTransactions[pairIndex];
+      
+      if (trans.role === 'Giao' || trans.role === 'Cộng điểm' || trans.role === 'Giao Free') {
+        groupedTransactions.push(trans, pair);
+      } else {
+        groupedTransactions.push(pair, trans);
+      }
+      
+      usedIndices.add(index);
+      usedIndices.add(pairIndex);
+    } else {
+      // Không có cặp - giao dịch đơn lẻ (có thể do import hoặc lỗi dữ liệu)
+      groupedTransactions.push(trans);
+      usedIndices.add(index);
     }
-    
-    // Cùng ngày: So sánh description + partner để nhóm cặp giao dịch
-    // Sau đó giữ thứ tự xuất hiện trong mảng gốc (stable sort)
-    return 0;
   });
+  
+  // Sắp xếp theo ngày - mới nhất lên trên (giữ nguyên thứ tự cặp)
+  const sortedTransactions = [];
+  const dateGroups = {};
+  
+  // Nhóm theo ngày
+  groupedTransactions.forEach(trans => {
+    if (!dateGroups[trans.date]) {
+      dateGroups[trans.date] = [];
+    }
+    dateGroups[trans.date].push(trans);
+  });
+  
+  // Sắp xếp các ngày và giữ thứ tự trong mỗi nhóm
+  Object.keys(dateGroups)
+    .sort((a, b) => {
+      const parseDate = (dateStr) => {
+        const [day, month] = dateStr.split('/');
+        return new Date(2024, parseInt(month) - 1, parseInt(day));
+      };
+      return parseDate(b) - parseDate(a); // Ngày mới nhất lên trên
+    })
+    .forEach(date => {
+      // Đảo ngược thứ tự trong cùng 1 ngày để giao dịch mới nhất (cuối mảng) lên trước
+      const reversedGroup = [...dateGroups[date]].reverse();
+      sortedTransactions.push(...reversedGroup);
+    });
+  
+  return sortedTransactions;
 };
 
   const handleEditTransaction = (transaction, room) => {
