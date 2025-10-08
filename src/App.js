@@ -1060,7 +1060,6 @@ let delivererRole, receiverRole, delivererPoints, receiverPoints;
 
 const getAllTransactionsFlat = (room) => {
   const allTransactions = [];
-  const processedPairs = new Set(); // Theo dõi các cặp đã xử lý
   
   Object.entries(room.transactions).forEach(([memberId, transactions]) => {
     const member = room.members.find(m => m.id === parseInt(memberId));
@@ -1073,11 +1072,6 @@ const getAllTransactionsFlat = (room) => {
     });
   });
   
-  // Tạo key duy nhất cho mỗi giao dịch
-  const createTransKey = (trans) => {
-    return `${trans.date}_${trans.description}_${Math.abs(trans.price)}_${trans.memberName}_${trans.partner}`;
-  };
-  
   // Nhóm các giao dịch thành cặp
   const groupedTransactions = [];
   const usedIndices = new Set();
@@ -1089,7 +1083,6 @@ const getAllTransactionsFlat = (room) => {
     const pairIndex = allTransactions.findIndex((t, i) => {
       if (i <= index || usedIndices.has(i)) return false;
       
-      // Kiểm tra điều kiện cặp đôi
       const isSameTransaction = 
         t.date === trans.date &&
         t.description === trans.description &&
@@ -1101,54 +1094,57 @@ const getAllTransactionsFlat = (room) => {
     });
     
     if (pairIndex !== -1) {
-      // Có cặp - thêm cả 2 giao dịch theo thứ tự: Giao/Cộng điểm trước, Nhận/Trừ điểm sau
+      // Có cặp - thêm theo thứ tự: Giao/Cộng điểm trước, Nhận/Trừ điểm sau
       const pair = allTransactions[pairIndex];
       
-      if (trans.role === 'Giao' || trans.role === 'Cộng điểm' || trans.role === 'Giao Free') {
-        groupedTransactions.push(trans, pair);
+      if (trans.role === 'Giao' || trans.role === 'Cộng điểm' || trans.role === 'Giao Free' || trans.role === 'Trừ điểm') {
+        groupedTransactions.push([trans, pair]); // Lưu thành mảng 2 phần tử
       } else {
-        groupedTransactions.push(pair, trans);
+        groupedTransactions.push([pair, trans]); // Lưu thành mảng 2 phần tử
       }
       
       usedIndices.add(index);
       usedIndices.add(pairIndex);
     } else {
-      // Không có cặp - giao dịch đơn lẻ (có thể do import hoặc lỗi dữ liệu)
-      groupedTransactions.push(trans);
+      // Không có cặp - giao dịch đơn lẻ
+      groupedTransactions.push([trans]); // Vẫn lưu dạng mảng để đồng nhất
       usedIndices.add(index);
     }
   });
   
-  // Sắp xếp theo ngày - mới nhất lên trên (giữ nguyên thứ tự cặp)
+  // Sắp xếp theo ngày - mới nhất lên trên
   const sortedTransactions = [];
   const dateGroups = {};
   
-  // Nhóm theo ngày
-  groupedTransactions.forEach(trans => {
-    if (!dateGroups[trans.date]) {
-      dateGroups[trans.date] = [];
+  // Nhóm các CẶP theo ngày
+  groupedTransactions.forEach(pair => {
+    const date = pair[0].date; // Lấy ngày từ giao dịch đầu tiên trong cặp
+    if (!dateGroups[date]) {
+      dateGroups[date] = [];
     }
-    dateGroups[trans.date].push(trans);
+    dateGroups[date].push(pair);
   });
   
-  // Sắp xếp các ngày và giữ thứ tự trong mỗi nhóm
+  // Sắp xếp các ngày và đảo ngược thứ tự CẶP trong mỗi ngày
   Object.keys(dateGroups)
     .sort((a, b) => {
       const parseDate = (dateStr) => {
         const [day, month] = dateStr.split('/');
-        return new Date(2024, parseInt(month) - 1, parseInt(day));
+        return new Date(2025, parseInt(month) - 1, parseInt(day));
       };
       return parseDate(b) - parseDate(a); // Ngày mới nhất lên trên
     })
     .forEach(date => {
-      // Đảo ngược thứ tự trong cùng 1 ngày để giao dịch mới nhất (cuối mảng) lên trước
-      const reversedGroup = [...dateGroups[date]].reverse();
-      sortedTransactions.push(...reversedGroup);
+      // Đảo ngược thứ tự các CẶP (giao dịch mới nhất lên trước)
+      // NHƯNG giữ nguyên thứ tự trong mỗi cặp
+      const reversedPairs = [...dateGroups[date]].reverse();
+      reversedPairs.forEach(pair => {
+        sortedTransactions.push(...pair); // Giải nén mảng cặp ra
+      });
     });
   
   return sortedTransactions;
 };
-
   const handleEditTransaction = (transaction, room) => {
     setEditingTransaction({ ...transaction, roomId: room.id });
     
