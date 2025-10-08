@@ -5,6 +5,19 @@ import { database } from './firebase';
 import { ref, set, onValue, get } from 'firebase/database';
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+const removeVietnameseTones = (str) => {
+  if (!str) return '';
+  str = str.toLowerCase();
+  str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a');
+  str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e');
+  str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i');
+  str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o');
+  str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u');
+  str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y');
+  str = str.replace(/đ/g, 'd');
+  str = str.replace(/\s+/g, ' ');
+  return str.trim();
+};
 // Helper functions để chuyển đổi dữ liệu cho Firebase
 const convertToFirebase = (rooms) => {
   if (!rooms || !Array.isArray(rooms)) {
@@ -374,15 +387,20 @@ useEffect(() => {
   const currentDate = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   // Hàm lọc thành viên theo tên
-const filterMembers = (members, searchTerm) => {
-  if (!searchTerm || searchTerm.trim() === '') return members;
-  
-  const search = searchTerm.toLowerCase().trim();
-  return members.filter(member => 
-    member.name.toLowerCase().includes(search) ||
-    member.id.toString().includes(search)
-  );
-};
+// ✅ Hàm lọc thành viên theo tên - CẢI TIẾN với tìm kiếm không dấu
+  const filterMembers = (members, searchTerm) => {
+    if (!searchTerm || searchTerm.trim() === '') return members;
+    
+    const searchNormalized = removeVietnameseTones(searchTerm.toLowerCase());
+    
+    return members.filter(member => {
+      const memberNameNormalized = removeVietnameseTones(member.name.toLowerCase());
+      const memberIdStr = member.id.toString();
+      
+      return memberNameNormalized.includes(searchNormalized) || 
+            memberIdStr.includes(searchTerm);
+    });
+  };
   const getDateColumns = () => {
     const today = new Date();
     const dates = [];
@@ -397,11 +415,23 @@ const filterMembers = (members, searchTerm) => {
 
   const dateColumns = getDateColumns();
 
+ // ✅ FILTERED MEMBERS - CẢI TIẾN VỚI TÌM KIẾM KHÔNG DẤU
   const filteredMembers = useMemo(() => {
     if (!selectedRoom) return [];
-    return selectedRoom.members.filter(member =>
-      member.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    
+    if (!searchTerm || searchTerm.trim() === '') {
+      return selectedRoom.members;
+    }
+    
+    const searchNormalized = removeVietnameseTones(searchTerm.toLowerCase());
+    
+    return selectedRoom.members.filter(member => {
+      const memberNameNormalized = removeVietnameseTones(member.name.toLowerCase());
+      const memberIdStr = member.id.toString();
+      
+      return memberNameNormalized.includes(searchNormalized) || 
+            memberIdStr.includes(searchTerm);
+    });
   }, [selectedRoom, searchTerm]);
 
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
