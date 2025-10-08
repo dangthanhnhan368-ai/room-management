@@ -683,9 +683,9 @@ const handleAddTransaction = () => {
   const dateObj = new Date(date);
   const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
 
-  // XÁC ĐỊNH VAI TRÒ VÀ ĐIỂM
-  let delivererRole, receiverRole, delivererPoints, receiverPoints;
-  
+// XÁC ĐỊNH VAI TRÒ VÀ ĐIỂM
+let delivererRole, receiverRole, delivererPoints, receiverPoints;
+
   if (isFreeTransaction) {
     delivererRole = 'Giao Free';
     receiverRole = 'Nhận Free';
@@ -694,15 +694,13 @@ const handleAddTransaction = () => {
   } else if (isAddPointTransaction) {
     delivererRole = 'Trừ điểm';
     receiverRole = 'Cộng điểm';
-    // ✅ LÀM TRÒN khi gán điểm
-    delivererPoints = Math.round(-points * 10) / 10;
-    receiverPoints = Math.round(points * 10) / 10;
+    delivererPoints = -points;  // ❌ BỎ Math.round
+    receiverPoints = points;     // ❌ BỎ Math.round
   } else {
     delivererRole = 'Giao';
     receiverRole = 'Nhận';
-    // ✅ LÀM TRÒN khi gán điểm
-    delivererPoints = Math.round(points * 10) / 10;
-    receiverPoints = Math.round(-points * 10) / 10;
+    delivererPoints = points;    // ❌ BỎ Math.round
+    receiverPoints = -points;    // ❌ BỎ Math.round
   }
 
   console.log('📊 Final points:', {
@@ -740,39 +738,39 @@ const handleAddTransaction = () => {
 
     const currentDate = dateColumns[2];
     const newMembers = r.members.map(m => {
-      if (!m.points[currentDate]) {
-        m.points[currentDate] = m.totalPoints || 0;
-      }
-      if (m.totalPoints === undefined) {
-        m.totalPoints = m.points[currentDate] || 0;
-      }
-      
-      if (m.id === deliverer.id && !isFreeTransaction) {
-        // ✅ LÀM TRÒN khi cập nhật totalPoints
-        const newTotal = Math.round((m.totalPoints + delivererPoints) * 10) / 10;
-        return {
-          ...m,
-          points: {
-            ...m.points,
-            [currentDate]: newTotal
-          },
-          totalPoints: newTotal
-        };
-      }
-      if (m.id === receiver.id && !isFreeTransaction) {
-        // ✅ LÀM TRÒN khi cập nhật totalPoints
-        const newTotal = Math.round((m.totalPoints + receiverPoints) * 10) / 10;
-        return {
-          ...m,
-          points: {
-            ...m.points,
-            [currentDate]: newTotal
-          },
-          totalPoints: newTotal
-        };
-      }
-      return m;
-    });
+  if (!m.points[currentDate]) {
+    m.points[currentDate] = m.totalPoints || 0;
+  }
+  if (m.totalPoints === undefined) {
+    m.totalPoints = m.points[currentDate] || 0;
+  }
+  
+  if (m.id === deliverer.id && !isFreeTransaction) {
+    // ✅ Cộng trực tiếp, SAU ĐÓ làm tròn 1 lần
+    const newTotal = parseFloat((m.totalPoints + delivererPoints).toFixed(1));
+    return {
+      ...m,
+      points: {
+        ...m.points,
+        [currentDate]: newTotal
+      },
+      totalPoints: newTotal
+    };
+  }
+  if (m.id === receiver.id && !isFreeTransaction) {
+    // ✅ Cộng trực tiếp, SAU ĐÓ làm tròn 1 lần
+    const newTotal = parseFloat((m.totalPoints + receiverPoints).toFixed(1));
+    return {
+      ...m,
+      points: {
+        ...m.points,
+        [currentDate]: newTotal
+      },
+      totalPoints: newTotal
+    };
+  }
+  return m;
+});
 
     return {
       ...r,
@@ -1062,35 +1060,35 @@ const handleAddTransaction = () => {
 
 const getAllTransactionsFlat = (room) => {
   const allTransactions = [];
+  
   Object.entries(room.transactions).forEach(([memberId, transactions]) => {
     const member = room.members.find(m => m.id === parseInt(memberId));
-    // Thêm index để biết thứ tự giao dịch được tạo
-    transactions.forEach((trans, transIndex) => {
+    transactions.forEach((trans) => {
       allTransactions.push({
         ...trans,
         memberId: parseInt(memberId),
-        memberName: member?.name || `ID: ${memberId}`,
-        originalIndex: transIndex // Lưu thứ tự gốc
+        memberName: member?.name || `ID: ${memberId}`
       });
     });
   });
   
-  // Sắp xếp theo: 1) Ngày mới nhất trước, 2) Trong cùng ngày thì giao dịch tạo sau lên trên
+  // Sắp xếp: Ngày mới nhất trước, cùng ngày thì giao dịch cuối mảng lên trên
   return allTransactions.sort((a, b) => {
     const parseDate = (dateStr) => {
       const [day, month] = dateStr.split('/');
       return new Date(2024, parseInt(month) - 1, parseInt(day));
     };
     
-    // So sánh ngày trước
     const dateCompare = parseDate(b.date) - parseDate(a.date);
     
-    // Nếu cùng ngày, so sánh theo thứ tự tạo (index lớn hơn = tạo sau = lên trên)
-    if (dateCompare === 0) {
-      return b.originalIndex - a.originalIndex;
+    // Nếu khác ngày, ưu tiên ngày mới
+    if (dateCompare !== 0) {
+      return dateCompare;
     }
     
-    return dateCompare;
+    // Cùng ngày: So sánh description + partner để nhóm cặp giao dịch
+    // Sau đó giữ thứ tự xuất hiện trong mảng gốc (stable sort)
+    return 0;
   });
 };
 
