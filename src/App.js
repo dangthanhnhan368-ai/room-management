@@ -85,60 +85,7 @@ const convertFromFirebase = (rooms) => {
     return [];
   }
 };
-// ========================================
-// Hàm 1: Tạo session ID ngẫu nhiên
-const generateSessionId = () => {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-};
 
-// Hàm 2: Kiểm tra và tạo session Admin
-const checkAndSetAdminSession = async (database) => {
-  const sessionRef = ref(database, 'adminSession');
-  const snapshot = await get(sessionRef);
-  const currentSession = snapshot.val();
-  const mySessionId = sessionStorage.getItem('adminSessionId');
-  
-  // Nếu có session khác đang hoạt động
-  if (currentSession && currentSession.sessionId !== mySessionId) {
-    // Kiểm tra xem session cũ còn hoạt động không (timeout 5 phút)
-    const sessionAge = Date.now() - currentSession.timestamp;
-    if (sessionAge < 5 * 60 * 1000) { // 5 phút
-      return {
-        success: false,
-        message: `Admin đang đăng nhập ở thiết bị khác!\n\nEmail: ${currentSession.email}\nThời gian: ${new Date(currentSession.timestamp).toLocaleString('vi-VN')}\n\nVui lòng đăng xuất ở thiết bị kia trước.`
-      };
-    }
-  }
-  
-  // Tạo session mới
-  const newSessionId = generateSessionId();
-  sessionStorage.setItem('adminSessionId', newSessionId);
-  
-  await set(sessionRef, {
-    sessionId: newSessionId,
-    email: 'dangthanhnhan368@gmail.com',
-    timestamp: Date.now(),
-    userAgent: navigator.userAgent
-  });
-  
-  return { success: true };
-};
-
-// Hàm 3: Xóa session khi đăng xuất
-const clearAdminSession = async (database) => {
-  const mySessionId = sessionStorage.getItem('adminSessionId');
-  const sessionRef = ref(database, 'adminSession');
-  const snapshot = await get(sessionRef);
-  const currentSession = snapshot.val();
-  
-  // Chỉ xóa nếu là session của mình
-  if (currentSession && currentSession.sessionId === mySessionId) {
-    await set(sessionRef, null);
-  }
-  
-  sessionStorage.removeItem('adminSessionId');
-};
-// ========================================
 // Sample data for rooms
 const initialRooms = [
   {
@@ -263,7 +210,6 @@ const initialRooms = [
 ];
 
 const RoomManagementSystem = () => {
-  // ✅ THÊM useEffect reset localStorage
   useEffect(() => {
     const resetKey = 'migration_reset_v2';
     if (!localStorage.getItem(resetKey)) {
@@ -339,28 +285,6 @@ const RoomManagementSystem = () => {
   const [showReceiverDropdown, setShowReceiverDropdown] = useState(false);
   //const [showMemberHistory, setShowMemberHistory] = useState(null);
   //const [editingHistoryTransaction, setEditingHistoryTransaction] = useState(null);
-
-// ✅ THÊM: Xóa session khi đóng tab/thoát trang
-useEffect(() => {
-  const handleBeforeUnload = async (e) => {
-    if (isAdminAuthenticated) {
-      await clearAdminSession(database);
-      
-      // Clear heartbeat interval
-      const intervalId = sessionStorage.getItem('heartbeatInterval');
-      if (intervalId) {
-        clearInterval(parseInt(intervalId));
-      }
-    }
-  };
-  
-  window.addEventListener('beforeunload', handleBeforeUnload);
-  
-  return () => {
-    window.removeEventListener('beforeunload', handleBeforeUnload);
-  };
-}, [isAdminAuthenticated]);
-
 // Ctrl + Shift + X
 useEffect(() => {
   const handleKeyPress = (e) => {
@@ -690,15 +614,7 @@ workbook.SheetNames.slice(1).forEach(sheetName => {
 const handleAdminLogin = async () => {
   if (adminPassword === 'admin112233') {
     try {
-      // ✅ BƯỚC 1: KIỂM TRA session trước khi đăng nhập Firebase
-      const sessionCheck = await checkAndSetAdminSession(database);
-      
-      if (!sessionCheck.success) {
-        alert(sessionCheck.message);
-        return; // ❌ Dừng đăng nhập nếu có Admin khác đang đăng nhập
-      }
-      
-      // ✅ BƯỚC 2: Đăng nhập Firebase
+      // Đăng nhập Firebase với email/password admin
       await signInWithEmailAndPassword(
         auth, 
         'dangthanhnhan368@gmail.com', 
@@ -708,36 +624,10 @@ const handleAdminLogin = async () => {
       setIsAdminAuthenticated(true);
       setCurrentView('admin');
       alert('Đăng nhập thành công!');
-      
-      // ✅ BƯỚC 3: Tạo heartbeat để duy trì session
-      const heartbeatInterval = setInterval(async () => {
-        const mySessionId = sessionStorage.getItem('adminSessionId');
-        const sessionRef = ref(database, 'adminSession');
-        const snapshot = await get(sessionRef);
-        const currentSession = snapshot.val();
-        
-        if (currentSession && currentSession.sessionId === mySessionId) {
-          // Cập nhật timestamp để giữ session sống
-          await set(sessionRef, {
-            ...currentSession,
-            timestamp: Date.now()
-          });
-        } else {
-          // Session bị chiếm bởi thiết bị khác → Đăng xuất
-          clearInterval(heartbeatInterval);
-          alert('⚠️ Phiên đăng nhập của bạn đã bị đăng xuất do có Admin khác đăng nhập!');
-          await signOut(auth);
-          setCurrentView('home');
-          setIsAdminAuthenticated(false);
-        }
-      }, 60000); // Mỗi 1 phút
-      
-      // Lưu interval ID để clear sau này
-      sessionStorage.setItem('heartbeatInterval', heartbeatInterval);
-      
     } catch (error) {
       console.error('Firebase login error:', error);
       
+      // Hiển thị lỗi cụ thể
       if (error.code === 'auth/invalid-credential') {
         alert('Thông tin đăng nhập không đúng!');
       } else if (error.code === 'auth/network-request-failed') {
@@ -1986,120 +1876,98 @@ const handleDeleteTransaction = (transaction, room) => {
   {/* Title */}
   <h1 className="text-xl md:text-2xl font-bold text-gray-800 mb-4">Quản lý Admin</h1>
   
-  {/* ✅ BUTTONS GROUPED */}
-  <div className="flex flex-col md:flex-row gap-3">
-    {/* Group 1: Import/Export */}
-    <div className="flex-1 border border-gray-300 rounded-lg p-3 bg-gray-50">
-      <p className="text-xs font-semibold text-gray-700 mb-2 uppercase">📂 Dữ liệu</p>
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          onClick={handleDownloadTemplate}
-          className="flex items-center justify-center gap-1 bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 text-xs"
-          title="Tải Template Excel"
-        >
-          <Download size={16} />
-          <span className="hidden sm:inline">Template</span>
-          <span className="sm:hidden">Mẫu</span>
-        </button>
-        
-        <button
-          onClick={handleExportAllRoomsToExcel}
-          className="flex items-center justify-center gap-1 bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 text-xs"
-          title="Xuất tất cả Rooms"
-        >
-          <FileJson size={16} />
-          <span className="hidden sm:inline">Xuất Excel</span>
-          <span className="sm:hidden">Excel</span>
-        </button>
-        
-        <button
-          onClick={handleExportData}
-          className="flex items-center justify-center gap-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 text-xs"
-          title="Xuất dữ liệu JSON"
-        >
-          <Download size={16} />
-          <span className="hidden sm:inline">Xuất JSON</span>
-          <span className="sm:hidden">JSON</span>
-        </button>
-        
-        <label className="flex items-center justify-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 cursor-pointer text-xs">
-          <Upload size={16} />
-          <span className="hidden sm:inline">Nhập JSON</span>
-          <span className="sm:hidden">Import</span>
-          <input
-            type="file"
-            accept=".json"
-            onChange={handleImportData}
-            className="hidden"
-          />
-        </label>
-      </div>
-    </div>
-
-    {/* Group 2: Navigation */}
-    <div className="flex-1 border border-gray-300 rounded-lg p-3 bg-gray-50">
-      <p className="text-xs font-semibold text-gray-700 mb-2 uppercase">⚙️ Hệ thống</p>
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          onClick={() => {
-            setCurrentView('home');
-            setIsAdminAuthenticated(false);
-            setAdminPassword('');
-          }}
-          className="flex items-center justify-center gap-1 bg-gray-200 px-3 py-2 rounded-lg hover:bg-gray-300 text-xs"
-        >
-          <Home size={16} />
-          <span className="hidden sm:inline">Trang chủ</span>
-          <span className="sm:hidden">Home</span>
-        </button>
-        
-        <button
-          onClick={async () => {
-            const roomsRef = ref(database, 'rooms');
-            const snapshot = await get(roomsRef);
-            const data = snapshot.val();
-            if (data && Array.isArray(data)) {
-              const converted = convertFromFirebase(data);
-              setRooms(converted);
-              alert('Đã tải lại dữ liệu từ Firebase!');
-            }
-          }}
-          className="flex items-center justify-center gap-1 bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 text-xs"
-        >
-          🔄
-          <span className="hidden sm:inline">Tải lại</span>
-          <span className="sm:hidden">Reload</span>
-        </button>
-        
-        <button
-          onClick={async () => {
-            try {
-              // ✅ Xóa session trước khi đăng xuất
-              await clearAdminSession(database);
-              
-              // Clear heartbeat interval
-              const intervalId = sessionStorage.getItem('heartbeatInterval');
-              if (intervalId) {
-                clearInterval(parseInt(intervalId));
-                sessionStorage.removeItem('heartbeatInterval');
-              }
-              
-              await signOut(auth);
-              setCurrentView('home');
-              setIsAdminAuthenticated(false);
-              setAdminPassword('');
-              alert('Đã đăng xuất thành công!');
-            } catch (error) {
-              console.error('Logout error:', error);
-              alert('Lỗi khi đăng xuất: ' + error.message);
-            }
-          }}
-          className="flex items-center justify-center gap-1 bg-red-500 text-white px-3 py-2 rounded-lg hover:bg-red-600 text-xs col-span-2"
-        >
-          Đăng xuất
-        </button>
-      </div>
-    </div>
+  {/* Buttons - Responsive Grid */}
+  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:flex xl:flex-wrap gap-2">
+    <button
+      onClick={handleDownloadTemplate}
+      className="flex items-center justify-center gap-1 md:gap-2 bg-indigo-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-indigo-700 text-xs md:text-sm"
+      title="Tải Template Excel"
+    >
+      <Download size={16} className="md:w-[18px] md:h-[18px]" />
+      <span className="hidden sm:inline">Template</span>
+      <span className="sm:hidden">Mẫu</span>
+    </button>
+    
+    <button
+      onClick={handleExportAllRoomsToExcel}
+      className="flex items-center justify-center gap-1 md:gap-2 bg-purple-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-purple-700 text-xs md:text-sm"
+      title="Xuất tất cả Rooms"
+    >
+      <FileJson size={16} className="md:w-[18px] md:h-[18px]" />
+      <span className="hidden sm:inline">Xuất Excel</span>
+      <span className="sm:hidden">Excel</span>
+    </button>
+    
+    <button
+      onClick={handleExportData}
+      className="flex items-center justify-center gap-1 md:gap-2 bg-green-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-green-700 text-xs md:text-sm"
+      title="Xuất dữ liệu JSON"
+    >
+      <Download size={16} className="md:w-[18px] md:h-[18px]" />
+      <span className="hidden sm:inline">Xuất JSON</span>
+      <span className="sm:hidden">JSON</span>
+    </button>
+    
+    <label className="flex items-center justify-center gap-1 md:gap-2 bg-blue-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-blue-700 cursor-pointer text-xs md:text-sm">
+      <Upload size={16} className="md:w-[18px] md:h-[18px]" />
+      <span className="hidden sm:inline">Nhập JSON</span>
+      <span className="sm:hidden">Import</span>
+      <input
+        type="file"
+        accept=".json"
+        onChange={handleImportData}
+        className="hidden"
+      />
+    </label>
+    
+    <button
+      onClick={() => {
+        setCurrentView('home');
+        setIsAdminAuthenticated(false);
+        setAdminPassword('');
+      }}
+      className="flex items-center justify-center gap-1 md:gap-2 bg-gray-200 px-2 md:px-4 py-2 rounded-lg hover:bg-gray-300 text-xs md:text-sm"
+    >
+      <Home size={16} className="md:w-[18px] md:h-[18px]" />
+      <span className="hidden sm:inline">Trang chủ</span>
+      <span className="sm:hidden">Home</span>
+    </button>
+    
+    <button
+      onClick={async () => {
+        const roomsRef = ref(database, 'rooms');
+        const snapshot = await get(roomsRef);
+        const data = snapshot.val();
+        if (data && Array.isArray(data)) {
+          const converted = convertFromFirebase(data);
+          setRooms(converted);
+          alert('Đã tải lại dữ liệu từ Firebase!');
+        }
+      }}
+      className="flex items-center justify-center gap-1 md:gap-2 bg-orange-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-orange-700 text-xs md:text-sm"
+    >
+      🔄
+      <span className="hidden sm:inline">Tải lại</span>
+      <span className="sm:hidden">Reload</span>
+    </button>
+    
+    <button
+      onClick={async () => {
+        try {
+          await signOut(auth);
+          setCurrentView('home');
+          setIsAdminAuthenticated(false);
+          setAdminPassword('');
+          alert('Đã đăng xuất thành công!');
+        } catch (error) {
+          console.error('Logout error:', error);
+          alert('Lỗi khi đăng xuất: ' + error.message);
+        }
+      }}
+      className="flex items-center justify-center gap-1 md:gap-2 bg-red-500 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-red-600 text-xs md:text-sm col-span-2 md:col-span-1"
+    >
+      Đăng xuất
+    </button>
   </div>
 </div>
 <div className="space-y-6">
