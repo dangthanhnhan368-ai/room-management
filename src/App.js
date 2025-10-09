@@ -101,39 +101,55 @@ const initialRooms = [
       { min: 5000000, max: 10000000, points: 3 },
     ],
     members: [
-  { 
-    id: 0, 
-    name: 'A Đức Airport', 
-    points: { '02/10': 0.5, '03/10': 0.5, '04/10': 0.5 }, 
-    totalPoints: 0.5,  // ✅ THÊM dòng này
-    deadline: 'Tháng 12/2025', 
-    note: 'RET1' 
-  },
-  { 
-    id: 2, 
-    name: 'Bin Lê', 
-    points: { '02/10': 5.0, '03/10': 5.0, '04/10': 5.0 }, 
-    totalPoints: 5.0,  // ✅ THÊM dòng này
-    deadline: 'Tháng 12/2025', 
-    note: 'RET1' 
-  },
-  { 
-    id: 5, 
-    name: 'Đặng Văn Khánh', 
-    points: { '02/10': 1.0, '03/10': 1.0, '04/10': 1.0 }, 
-    totalPoints: 1.0,  // ✅ THÊM dòng này
-    deadline: 'Tháng 12/2025', 
-    note: 'RET1' 
-  },
-  { 
-    id: 8, 
-    name: 'Hiếu Hán Linh', 
-    points: { '02/10': -1.0, '03/10': -1.0, '04/10': -1.0 }, 
-    totalPoints: -1.0,  // ✅ THÊM dòng này
-    deadline: 'Tháng 12/2025', 
-    note: 'RET1' 
-  },
-],
+      { 
+        id: 0, 
+        name: 'A Đức Airport', 
+        points: { 
+          '07/10': 0,    // ✅ Ngày cũ = 0
+          '08/10': 0,    // ✅ Ngày hôm qua = 0
+          '09/10': 0.5   // ✅ Ngày hôm nay = 0.5
+        }, 
+        totalPoints: 0.5,
+        deadline: 'Tháng 12/2025', 
+        note: 'RET1' 
+      },
+      { 
+        id: 2, 
+        name: 'Bin Lê', 
+        points: { 
+          '07/10': 0,    // ✅ Ngày cũ = 0
+          '08/10': 5.0,  // ✅ Ngày hôm qua = 5.0
+          '09/10': 5.0   // ✅ Ngày hôm nay = 5.0
+        }, 
+        totalPoints: 5.0,
+        deadline: 'Tháng 12/2025', 
+        note: 'RET1' 
+      },
+      { 
+        id: 5, 
+        name: 'Đặng Văn Khánh', 
+        points: { 
+          '07/10': 0,    // ✅ Ngày cũ = 0
+          '08/10': 1.0,  // ✅ Ngày hôm qua = 1.0
+          '09/10': 1.0   // ✅ Ngày hôm nay = 1.0
+        }, 
+        totalPoints: 1.0,
+        deadline: 'Tháng 12/2025', 
+        note: 'RET1' 
+      },
+      { 
+        id: 8, 
+        name: 'Hiếu Hán Linh', 
+        points: { 
+          '07/10': 0,     // ✅ Ngày cũ = 0
+          '08/10': -1.0,  // ✅ Ngày hôm qua = -1.0
+          '09/10': -1.0   // ✅ Ngày hôm nay = -1.0
+        }, 
+        totalPoints: -1.0,
+        deadline: 'Tháng 12/2025', 
+        note: 'RET1' 
+      },
+    ],
     transactions: {
       2: [
         { date: '24/09', description: 'Ngày 28/09 - 30/09: 29 chỗ (1 xe) thaco - Chiều tối 28 đón sg--- báo tộc...', price: 8500000, role: 'Giao', partner: 'Bin Lê', points: 3 },
@@ -156,16 +172,54 @@ const initialRooms = [
       { min: 5000000, max: 10000000, points: 3 },
     ],
     members: [
-      { id: 0, name: 'A Đức Airport', points: { '02/10': 0.5, '03/10': 0.5, '04/10': 0.5 }, totalPoints: 0.5, deadline: 'Tháng 12/2025', note: 'RET1' },
-      { id: 2, name: 'Bin Lê', points: { '02/10': 5.0, '03/10': 5.0, '04/10': 5.0 }, totalPoints: 5.0, deadline: 'Tháng 12/2025', note: 'RET1' },
-      { id: 5, name: 'Đặng Văn Khánh', points: { '02/10': 1.0, '03/10': 1.0, '04/10': 1.0 }, totalPoints: 1.0, deadline: 'Tháng 12/2025', note: 'RET1' },
-      { id: 8, name: 'Hiếu Hán Linh', points: { '02/10': -1.0, '03/10': -1.0, '04/10': -1.0 }, totalPoints: -1.0, deadline: 'Tháng 12/2025', note: 'RET1' },
+      { 
+        id: 0, 
+        name: 'A Đức Airport', 
+        points: { '07/10': 0, '08/10': 0, '09/10': 0.5 }, 
+        totalPoints: 0.5, 
+        deadline: 'Tháng 12/2025', 
+        note: 'RET1' 
+      },
+      { 
+        id: 2, 
+        name: 'Bin Lê', 
+        points: { '07/10': 0, '08/10': 5.0, '09/10': 5.0 }, 
+        totalPoints: 5.0, 
+        deadline: 'Tháng 12/2025', 
+        note: 'RET1' 
+      },
+      { 
+        id: 5, 
+        name: 'Đặng Văn Khánh', 
+        points: { '07/10': 0, '08/10': 1.0, '09/10': 1.0 }, 
+        totalPoints: 1.0, 
+        deadline: 'Tháng 12/2025', 
+        note: 'RET1' 
+      },
+      { 
+        id: 8, 
+        name: 'Hiếu Hán Linh', 
+        points: { '07/10': 0, '08/10': -1.0, '09/10': -1.0 }, 
+        totalPoints: -1.0, 
+        deadline: 'Tháng 12/2025', 
+        note: 'RET1' 
+      },
     ],
     transactions: {}
   }
 ];
 
 const RoomManagementSystem = () => {
+  useEffect(() => {
+    const resetKey = 'migration_reset_v2';
+    if (!localStorage.getItem(resetKey)) {
+      console.log('🔄 Resetting migration data...');
+      localStorage.removeItem('lastMigrationDate');
+      localStorage.setItem(resetKey, 'true');
+      console.log('✅ Migration reset complete');
+    }
+  }, []);
+
   const [currentView, setCurrentView] = useState('home');
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [rooms, setRooms] = useState([]);
@@ -368,21 +422,6 @@ useEffect(() => {
   return () => clearTimeout(timer);
 }, [rooms, isFirebaseAuthenticated, isLoadingFromFirebase]);
 
-useEffect(() => {
-  if (rooms.length === 0) return;
-  
-  const lastMigrationDate = localStorage.getItem('lastMigrationDate');
-  const today = new Date().toDateString();
-  
-  // Nếu chưa migrate hôm nay
-  if (lastMigrationDate !== today) {
-    console.log('🔄 Migrating points to new day...');
-    const migratedRooms = migratePointsToNewDay(rooms, dateColumns);
-    setRooms(migratedRooms);
-    localStorage.setItem('lastMigrationDate', today);
-    console.log('✅ Points migrated successfully');
-  }
-}, [rooms.length]); // Chỉ chạy khi có rooms
 
   const currentDate = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -611,40 +650,83 @@ const handleAdminLogin = async () => {
     return null;
   };
 
-  const migratePointsToNewDay = (rooms, dateColumns) => {
-      return rooms.map(room => ({
-        ...room,
-        members: room.members.map(member => {
-          const newPoints = { ...member.points };
-          const latestDate = dateColumns[2]; // Ngày mới nhất (hôm nay)
-          
-          // ✅ Lấy totalPoints hiện tại (điểm tích lũy)
-          const currentTotal = member.totalPoints !== undefined 
-            ? member.totalPoints 
-            : (newPoints[dateColumns[1]] || newPoints[dateColumns[0]] || 0);
-          
-          // ✅ FIX: Chỉ migrate sang ngày MỚI nếu chưa có
-          if (newPoints[latestDate] === undefined) {
-            newPoints[latestDate] = currentTotal;
-          }
-          
-          // ✅ FIX: Đảm bảo 2 ngày cũ KHÔNG bị ghi đè
-          // Nếu chưa có dữ liệu lịch sử thì mặc định = 0
-          if (newPoints[dateColumns[0]] === undefined) {
-            newPoints[dateColumns[0]] = 0;
-          }
-          if (newPoints[dateColumns[1]] === undefined) {
-            newPoints[dateColumns[1]] = 0;
-          }
-          
-          return {
-            ...member,
-            points: newPoints,
-            totalPoints: currentTotal
-          };
-        })
-      }));
-  };
+const migratePointsToNewDay = (rooms, dateColumns) => {
+  console.log('🔄 Starting migration...', {
+    dateColumns,
+    currentDate: new Date().toLocaleDateString('vi-VN')
+  });
+
+  return rooms.map(room => ({
+    ...room,
+    members: room.members.map(member => {
+      const newPoints = { ...member.points };
+      
+      // ✅ Ngày mới nhất (hôm nay)
+      const latestDate = dateColumns[2];
+      
+      // ✅ Lấy điểm tích lũy hiện tại
+      const currentTotal = member.totalPoints !== undefined 
+        ? member.totalPoints 
+        : (newPoints[latestDate] || 0);
+      
+      // ✅ CHỈ migrate nếu ngày mới CHƯA có dữ liệu
+      if (newPoints[latestDate] === undefined) {
+        console.log(`📅 Migrating ${member.name}: ${currentTotal} → ${latestDate}`);
+        newPoints[latestDate] = currentTotal;
+      }
+      
+      // ✅ KHÔNG GHI ĐÈ 2 ngày cũ - giữ nguyên hoặc set 0 nếu undefined
+      if (newPoints[dateColumns[0]] === undefined) {
+        newPoints[dateColumns[0]] = 0; // Ngày cũ nhất = 0 nếu chưa có
+      }
+      if (newPoints[dateColumns[1]] === undefined) {
+        newPoints[dateColumns[1]] = 0; // Ngày giữa = 0 nếu chưa có
+      }
+      
+      return {
+        ...member,
+        points: newPoints,
+        totalPoints: currentTotal // Giữ nguyên totalPoints
+      };
+    })
+  }));
+};
+
+// ✅ useEffect để migrate điểm sang ngày mới (chỉ chạy 1 lần/ngày)
+useEffect(() => {
+  if (rooms.length === 0 || isLoadingFromFirebase) return;
+  
+  const lastMigrationDate = localStorage.getItem('lastMigrationDate');
+  const today = new Date().toDateString();
+  const currentDateStr = dateColumns[2]; // Ngày hôm nay (dd/mm)
+  
+  console.log('🔍 Migration check:', {
+    lastMigrationDate,
+    today,
+    currentDateStr,
+    needMigrate: lastMigrationDate !== today
+  });
+  
+  // Chỉ migrate nếu:
+  // 1. Chưa migrate hôm nay
+  // 2. Có ít nhất 1 member chưa có điểm cho ngày hôm nay
+  if (lastMigrationDate !== today) {
+    const needMigration = rooms.some(room => 
+      room.members.some(member => member.points[currentDateStr] === undefined)
+    );
+    
+    if (needMigration) {
+      console.log('🔄 Migrating points to new day...');
+      const migratedRooms = migratePointsToNewDay(rooms, dateColumns);
+      setRooms(migratedRooms);
+      localStorage.setItem('lastMigrationDate', today);
+      console.log('✅ Points migrated successfully');
+    } else {
+      console.log('⏭️ Skip migration - all members already have points for today');
+      localStorage.setItem('lastMigrationDate', today);
+    }
+  }
+}, [rooms.length, isLoadingFromFirebase]);
 
 const handleAddTransaction = () => {
     const { roomId, date, delivererId, receiverId, price, description, manualPoints, isAddPointTransaction, isFreeTransaction } = transactionForm;
@@ -899,18 +981,17 @@ const handleAddTransaction = () => {
         return;
       }
 
-      // ✅ FIX: Chỉ gán điểm cho NGÀY MỚI NHẤT (ngày hôm nay)
-      const newMember = {
-        id: memberId,
-        name: name.trim(),
-        points: {
-          [dateColumns[0]]: 0,        // ✅ Ngày cũ nhất = 0 (chưa tồn tại)
-          [dateColumns[1]]: 0,        // ✅ Ngày giữa = 0 (chưa tồn tại)
-          [dateColumns[2]]: points    // ✅ Ngày mới nhất = điểm khởi đầu
-        },
-        totalPoints: points, // ✅ totalPoints = điểm hiện tại
-        deadline: deadline || '',
-        note: note || ''
+        const newMember = {
+          id: memberId,
+          name: name.trim(),
+          points: {
+            [dateColumns[0]]: 0,        // ✅ Ngày cũ nhất = 0 (chưa tồn tại)
+            [dateColumns[1]]: 0,        // ✅ Ngày giữa = 0 (chưa tồn tại)
+            [dateColumns[2]]: points    // ✅ Ngày mới nhất = điểm khởi đầu
+          },
+          totalPoints: points, // ✅ totalPoints = điểm hiện tại
+          deadline: deadline || '',
+          note: note || ''
       };
 
       setRooms(rooms.map(r => {
