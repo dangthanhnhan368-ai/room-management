@@ -1208,16 +1208,17 @@ const getAllTransactionsFlat = (room) => {
   
   Object.entries(room.transactions).forEach(([memberId, transactions]) => {
     const member = room.members.find(m => m.id === parseInt(memberId));
-    transactions.forEach((trans) => {
+    transactions.forEach((trans, originalIndex) => {
       allTransactions.push({
         ...trans,
         memberId: parseInt(memberId),
-        memberName: member?.name || `ID: ${memberId}`
+        memberName: member?.name || `ID: ${memberId}`,
+        originalIndex  // ✅ THÊM: Lưu index gốc để giữ thứ tự nhập
       });
     });
   });
   
-  // Nhóm các giao dịch thành cặp
+  // ✅ Nhóm các giao dịch thành cặp (GIỮ NGUYÊN THỨ TỰ NHẬP)
   const groupedTransactions = [];
   const usedIndices = new Set();
   
@@ -1239,56 +1240,61 @@ const getAllTransactionsFlat = (room) => {
     });
     
     if (pairIndex !== -1) {
-      // Có cặp - thêm theo thứ tự: Giao/Cộng điểm trước, Nhận/Trừ điểm sau
       const pair = allTransactions[pairIndex];
       
+      // ✅ Sắp xếp cặp: Giao/Cộng điểm/Giao Free/Trừ điểm trước
       if (trans.role === 'Giao' || trans.role === 'Cộng điểm' || trans.role === 'Giao Free' || trans.role === 'Trừ điểm') {
-        groupedTransactions.push([trans, pair]); // Lưu thành mảng 2 phần tử
+        groupedTransactions.push({
+          pair: [trans, pair],
+          date: trans.date,
+          timestamp: trans.originalIndex  // ✅ Dùng index gốc làm timestamp
+        });
       } else {
-        groupedTransactions.push([pair, trans]); // Lưu thành mảng 2 phần tử
+        groupedTransactions.push({
+          pair: [pair, trans],
+          date: pair.date,
+          timestamp: pair.originalIndex  // ✅ Dùng index gốc làm timestamp
+        });
       }
       
       usedIndices.add(index);
       usedIndices.add(pairIndex);
     } else {
-      // Không có cặp - giao dịch đơn lẻ
-      groupedTransactions.push([trans]); // Vẫn lưu dạng mảng để đồng nhất
+      // Giao dịch đơn lẻ
+      groupedTransactions.push({
+        pair: [trans],
+        date: trans.date,
+        timestamp: trans.originalIndex
+      });
       usedIndices.add(index);
     }
   });
   
-  // Sắp xếp theo ngày - mới nhất lên trên
-  const sortedTransactions = [];
-  const dateGroups = {};
-  
-  // Nhóm các CẶP theo ngày
-  groupedTransactions.forEach(pair => {
-    const date = pair[0].date; // Lấy ngày từ giao dịch đầu tiên trong cặp
-    if (!dateGroups[date]) {
-      dateGroups[date] = [];
+  // ✅ Sort theo NGÀY (mới nhất trước), SAU ĐÓ theo TIMESTAMP (mới nhất trước)
+  groupedTransactions.sort((a, b) => {
+    // So sánh ngày
+    const parseDate = (dateStr) => {
+      const [day, month] = dateStr.split('/');
+      return new Date(2025, parseInt(month) - 1, parseInt(day));
+    };
+    
+    const dateCompare = parseDate(b.date) - parseDate(a.date);
+    
+    // Nếu cùng ngày, so sánh timestamp (index cao hơn = nhập sau = hiển thị trước)
+    if (dateCompare === 0) {
+      return b.timestamp - a.timestamp;
     }
-    dateGroups[date].push(pair);
+    
+    return dateCompare;
   });
   
-  // Sắp xếp các ngày và đảo ngược thứ tự CẶP trong mỗi ngày
-  Object.keys(dateGroups)
-    .sort((a, b) => {
-      const parseDate = (dateStr) => {
-        const [day, month] = dateStr.split('/');
-        return new Date(2025, parseInt(month) - 1, parseInt(day));
-      };
-      return parseDate(b) - parseDate(a); // Ngày mới nhất lên trên
-    })
-    .forEach(date => {
-      // Đảo ngược thứ tự các CẶP (giao dịch mới nhất lên trước)
-      // NHƯNG giữ nguyên thứ tự trong mỗi cặp
-      const reversedPairs = [...dateGroups[date]].reverse();
-      reversedPairs.forEach(pair => {
-        sortedTransactions.push(...pair); // Giải nén mảng cặp ra
-      });
-    });
+  // ✅ Giải nén các cặp ra thành mảng phẳng
+  const result = [];
+  groupedTransactions.forEach(group => {
+    result.push(...group.pair);
+  });
   
-  return sortedTransactions;
+  return result;
 };
   const handleEditTransaction = (transaction, room) => {
     setEditingTransaction({ ...transaction, roomId: room.id });
@@ -3112,270 +3118,254 @@ const handleDeleteTransaction = (transaction, room) => {
               <th className="px-3 py-2 text-center text-sm font-semibold">Thao tác</th>
             </tr>
           </thead>
-          <tbody>
-            {showMemberHistory.room.transactions[showMemberHistory.member.id]?.length > 0 ? (
-              showMemberHistory.room.transactions[showMemberHistory.member.id].map((trans, index) => (
-                editingHistoryTransaction?.index === index ? (
-                  <tr key={index} className="border-b bg-yellow-50">
-                    <td className="px-3 py-2">
-                      <input
-                        type="text"
-                        value={editingHistoryTransaction.date}
-                        onChange={(e) => setEditingHistoryTransaction({
-                          ...editingHistoryTransaction,
-                          date: e.target.value
-                        })}
-                        className="w-20 px-2 py-1 border rounded text-sm"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <textarea
-                        value={editingHistoryTransaction.description}
-                        onChange={(e) => setEditingHistoryTransaction({
-                          ...editingHistoryTransaction,
-                          description: e.target.value
-                        })}
-                        className="w-full px-2 py-1 border rounded text-sm"
-                        rows="2"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <input
-                        type="text"
-                        value={editingHistoryTransaction.price.toLocaleString('vi-VN')}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^\d]/g, '');
-                          setEditingHistoryTransaction({
-                            ...editingHistoryTransaction,
-                            price: parseFloat(value) || 0
-                          });
-                        }}
-                        className="w-28 px-2 py-1 border rounded text-sm text-right"
-                      />
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <select
-                        value={editingHistoryTransaction.role}
-                        onChange={(e) => setEditingHistoryTransaction({
-                          ...editingHistoryTransaction,
-                          role: e.target.value
-                        })}
-                        className="px-2 py-1 border rounded text-sm"
-                      >
-                        <option value="Giao">Giao</option>
-                        <option value="Nhận">Nhận</option>
-                      </select>
-                    </td>
-                    <td className="px-3 py-2">
-                      <input
-                        type="text"
-                        value={editingHistoryTransaction.partner}
-                        onChange={(e) => setEditingHistoryTransaction({
-                          ...editingHistoryTransaction,
-                          partner: e.target.value
-                        })}
-                        className="w-full px-2 py-1 border rounded text-sm"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={editingHistoryTransaction.points}
-                        onChange={(e) => setEditingHistoryTransaction({
-                          ...editingHistoryTransaction,
-                          points: parseFloat(e.target.value) || 0
-                        })}
-                        className="w-20 px-2 py-1 border rounded text-sm text-center"
-                      />
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <div className="flex gap-1 justify-center">
-                       <button
-  onClick={() => {
-    const room = showMemberHistory.room;
-    const member = showMemberHistory.member;
-    const oldTrans = room.transactions[member.id][index];
-    const newTrans = editingHistoryTransaction;
-    
-    // Tính chênh lệch điểm
-    const pointsDiff = newTrans.points - oldTrans.points;
-    const currentDate = dateColumns[2];
-    
-    // Cập nhật giao dịch
-    const updatedTransactions = [...room.transactions[member.id]];
-    updatedTransactions[index] = {
-      date: newTrans.date,
-      description: newTrans.description,
-      price: newTrans.price,
-      role: newTrans.role,
-      partner: newTrans.partner,
-      points: newTrans.points
-    };
-    
-    setRooms(rooms.map(r => {
-      if (r.id !== room.id) return r;
-      
-      return {
-        ...r,
-        transactions: {
-          ...r.transactions,
-          [member.id]: updatedTransactions
-        },
-        members: r.members.map(m => {
-          if (m.id !== member.id) return m;
-          
-          // Cập nhật điểm với chênh lệch
-          const newTotal = Math.round((m.totalPoints + pointsDiff) * 10) / 10;
-          
-          console.log(`✏️ Sửa giao dịch - ${m.name}:`, {
-            oldPoints: oldTrans.points,
-            newPoints: newTrans.points,
-            pointsDiff,
-            oldTotal: m.totalPoints,
-            newTotal
-          });
-          
-          return {
-            ...m,
-            points: {
-              ...m.points,
-              [currentDate]: newTotal
-            },
-            totalPoints: newTotal
-          };
-        })
-      };
-    }));
-    
-    setEditingHistoryTransaction(null);
-    alert('Đã cập nhật giao dịch và điểm!');
-  }}
-  className="text-green-600 hover:bg-green-50 p-1 rounded"
-  title="Lưu"
->
-  ✓
-</button>
-                        <button
-                          onClick={() => setEditingHistoryTransaction(null)}
-                          className="text-gray-600 hover:bg-gray-50 p-1 rounded"
-                          title="Hủy"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  <tr key={index} className="border-b hover:bg-gray-50">
-                    <td className="px-3 py-2 text-sm">{trans.date}</td>
-                    <td className="px-3 py-2 text-sm max-w-md">{trans.description}</td>
-                    <td className="px-3 py-2 text-sm text-right">
-                      {trans.price.toLocaleString('vi-VN')}
-                    </td>
-                    <td className="px-3 py-2 text-sm text-center">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        trans.role === 'Giao' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {trans.role}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-sm">{trans.partner}</td>
-                    <td className={`px-3 py-2 text-sm text-center font-semibold ${
-                      trans.points > 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {trans.points > 0 ? '+' : ''}{trans.points}
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <div className="flex gap-1 justify-center">
-                        <button
-                          onClick={() => setEditingHistoryTransaction({ ...trans, index })}
-                          className="text-yellow-600 hover:bg-yellow-50 p-1 rounded"
-                          title="Sửa"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                      <button
-  onClick={() => {
-    const confirmDelete = window.confirm('Bạn có chắc chắn muốn xóa giao dịch này?');
-    if (!confirmDelete) return;
+<tbody>
+  {showMemberHistory.room.transactions[showMemberHistory.member.id]?.length > 0 ? (
+    // ✅ ĐẢO NGƯỢC thứ tự: Giao dịch mới nhất lên đầu
+    [...showMemberHistory.room.transactions[showMemberHistory.member.id]]
+      .reverse()
+      .map((trans, displayIndex) => {
+        // ✅ Tính index thật trong mảng gốc
+        const actualIndex = showMemberHistory.room.transactions[showMemberHistory.member.id].length - 1 - displayIndex;
+        
+        return editingHistoryTransaction?.index === actualIndex ? (
+          <tr key={actualIndex} className="border-b bg-yellow-50">
+            <td className="px-3 py-2">
+              <input
+                type="text"
+                value={editingHistoryTransaction.date}
+                onChange={(e) => setEditingHistoryTransaction({
+                  ...editingHistoryTransaction,
+                  date: e.target.value
+                })}
+                className="w-20 px-2 py-1 border rounded text-sm"
+              />
+            </td>
+            <td className="px-3 py-2">
+              <textarea
+                value={editingHistoryTransaction.description}
+                onChange={(e) => setEditingHistoryTransaction({
+                  ...editingHistoryTransaction,
+                  description: e.target.value
+                })}
+                className="w-full px-2 py-1 border rounded text-sm"
+                rows="2"
+              />
+            </td>
+            <td className="px-3 py-2">
+              <input
+                type="text"
+                value={editingHistoryTransaction.price.toLocaleString('vi-VN')}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^\d]/g, '');
+                  setEditingHistoryTransaction({
+                    ...editingHistoryTransaction,
+                    price: parseFloat(value) || 0
+                  });
+                }}
+                className="w-28 px-2 py-1 border rounded text-sm text-right"
+              />
+            </td>
+            <td className="px-3 py-2 text-center">
+              <select
+                value={editingHistoryTransaction.role}
+                onChange={(e) => setEditingHistoryTransaction({
+                  ...editingHistoryTransaction,
+                  role: e.target.value
+                })}
+                className="px-2 py-1 border rounded text-sm"
+              >
+                <option value="Giao">Giao</option>
+                <option value="Nhận">Nhận</option>
+              </select>
+            </td>
+            <td className="px-3 py-2">
+              <input
+                type="text"
+                value={editingHistoryTransaction.partner}
+                onChange={(e) => setEditingHistoryTransaction({
+                  ...editingHistoryTransaction,
+                  partner: e.target.value
+                })}
+                className="w-full px-2 py-1 border rounded text-sm"
+              />
+            </td>
+            <td className="px-3 py-2">
+              <input
+                type="number"
+                step="0.1"
+                value={editingHistoryTransaction.points}
+                onChange={(e) => setEditingHistoryTransaction({
+                  ...editingHistoryTransaction,
+                  points: parseFloat(e.target.value) || 0
+                })}
+                className="w-20 px-2 py-1 border rounded text-sm text-center"
+              />
+            </td>
+            <td className="px-3 py-2 text-center">
+              <div className="flex gap-1 justify-center">
+                <button
+                  onClick={() => {
+                    const room = showMemberHistory.room;
+                    const member = showMemberHistory.member;
+                    const oldTrans = room.transactions[member.id][actualIndex];
+                    const newTrans = editingHistoryTransaction;
+                    
+                    const pointsDiff = newTrans.points - oldTrans.points;
+                    const currentDate = dateColumns[2];
+                    
+                    const updatedTransactions = [...room.transactions[member.id]];
+                    updatedTransactions[actualIndex] = {
+                      date: newTrans.date,
+                      description: newTrans.description,
+                      price: newTrans.price,
+                      role: newTrans.role,
+                      partner: newTrans.partner,
+                      points: newTrans.points
+                    };
+                    
+                    setRooms(rooms.map(r => {
+                      if (r.id !== room.id) return r;
+                      
+                      return {
+                        ...r,
+                        transactions: {
+                          ...r.transactions,
+                          [member.id]: updatedTransactions
+                        },
+                        members: r.members.map(m => {
+                          if (m.id !== member.id) return m;
+                          
+                          const newTotal = Math.round((m.totalPoints + pointsDiff) * 10) / 10;
+                          
+                          return {
+                            ...m,
+                            points: {
+                              ...m.points,
+                              [currentDate]: newTotal
+                            },
+                            totalPoints: newTotal
+                          };
+                        })
+                      };
+                    }));
+                    
+                    setEditingHistoryTransaction(null);
+                    alert('Đã cập nhật giao dịch và điểm!');
+                  }}
+                  className="text-green-600 hover:bg-green-50 p-1 rounded"
+                  title="Lưu"
+                >
+                  ✓
+                </button>
+                <button
+                  onClick={() => setEditingHistoryTransaction(null)}
+                  className="text-gray-600 hover:bg-gray-50 p-1 rounded"
+                  title="Hủy"
+                >
+                  ✕
+                </button>
+              </div>
+            </td>
+          </tr>
+        ) : (
+          <tr key={actualIndex} className="border-b hover:bg-gray-50">
+            <td className="px-3 py-2 text-sm">{trans.date}</td>
+            <td className="px-3 py-2 text-sm max-w-md">{trans.description}</td>
+            <td className="px-3 py-2 text-sm text-right">
+              {trans.price.toLocaleString('vi-VN')}
+            </td>
+            <td className="px-3 py-2 text-sm text-center">
+              <span className={`px-2 py-1 rounded text-xs ${
+                trans.role === 'Giao' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+              }`}>
+                {trans.role}
+              </span>
+            </td>
+            <td className="px-3 py-2 text-sm">{trans.partner}</td>
+            <td className={`px-3 py-2 text-sm text-center font-semibold ${
+              trans.points > 0 ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {trans.points > 0 ? '+' : ''}{trans.points}
+            </td>
+            <td className="px-3 py-2 text-center">
+              <div className="flex gap-1 justify-center">
+                <button
+                  onClick={() => setEditingHistoryTransaction({ ...trans, index: actualIndex })}
+                  className="text-yellow-600 hover:bg-yellow-50 p-1 rounded"
+                  title="Sửa"
+                >
+                  <Edit2 size={14} />
+                </button>
+                <button
+                  onClick={() => {
+                    const confirmDelete = window.confirm('Bạn có chắc chắn muốn xóa giao dịch này?');
+                    if (!confirmDelete) return;
 
-    const transToDelete = trans;
-    const room = showMemberHistory.room;
-    const member = showMemberHistory.member;
-    
-    // Xóa giao dịch khỏi mảng
-    const updatedTransactions = room.transactions[member.id].filter((_, i) => i !== index);
-    
-    // Cập nhật điểm: hoàn ngược lại điểm của giao dịch bị xóa
-    const currentDate = dateColumns[2];
-    const isFreeTransaction = transToDelete.role === 'Giao Free' || transToDelete.role === 'Nhận Free';
-    
-    setRooms(rooms.map(r => {
-      if (r.id !== room.id) return r;
-      
-      return {
-        ...r,
-        transactions: {
-          ...r.transactions,
-          [member.id]: updatedTransactions
-        },
-        members: r.members.map(m => {
-          if (m.id !== member.id || isFreeTransaction) return m;
-          
-          // Hoàn ngược điểm
-          const pointsToRevert = -transToDelete.points;
-          const newTotal = Math.round((m.totalPoints + pointsToRevert) * 10) / 10;
-          
-          console.log(`🔄 Xóa giao dịch - ${m.name}:`, {
-            oldTotal: m.totalPoints,
-            pointsDeleted: transToDelete.points,
-            pointsToRevert,
-            newTotal
-          });
-          
-          return {
-            ...m,
-            points: {
-              ...m.points,
-              [currentDate]: newTotal
-            },
-            totalPoints: newTotal
-          };
-        })
-      };
-    }));
-    
-    // Cập nhật state showMemberHistory để UI phản ánh ngay
-    const updatedRoom = rooms.find(r => r.id === room.id);
-    if (updatedRoom) {
-      const updatedMember = updatedRoom.members.find(m => m.id === member.id);
-      setShowMemberHistory({
-        room: updatedRoom,
-        member: updatedMember
-      });
-    }
-    
-    alert('Đã xóa giao dịch và cập nhật điểm!');
-  }}
-  className="text-red-600 hover:bg-red-50 p-1 rounded"
-  title="Xóa"
->
-  <Trash2 size={14} />
-</button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              ))
-            ) : (
-              <tr>
-                <td colSpan="7" className="px-3 py-8 text-center text-gray-500">
-                  Chưa có lịch sử giao dịch
-                </td>
-              </tr>
-            )}
-          </tbody>
+                    const transToDelete = trans;
+                    const room = showMemberHistory.room;
+                    const member = showMemberHistory.member;
+                    
+                    const updatedTransactions = room.transactions[member.id].filter((_, i) => i !== actualIndex);
+                    
+                    const currentDate = dateColumns[2];
+                    const isFreeTransaction = transToDelete.role === 'Giao Free' || transToDelete.role === 'Nhận Free';
+                    
+                    setRooms(rooms.map(r => {
+                      if (r.id !== room.id) return r;
+                      
+                      return {
+                        ...r,
+                        transactions: {
+                          ...r.transactions,
+                          [member.id]: updatedTransactions
+                        },
+                        members: r.members.map(m => {
+                          if (m.id !== member.id || isFreeTransaction) return m;
+                          
+                          const pointsToRevert = -transToDelete.points;
+                          const newTotal = Math.round((m.totalPoints + pointsToRevert) * 10) / 10;
+                          
+                          return {
+                            ...m,
+                            points: {
+                              ...m.points,
+                              [currentDate]: newTotal
+                            },
+                            totalPoints: newTotal
+                          };
+                        })
+                      };
+                    }));
+                    
+                    const updatedRoom = rooms.find(r => r.id === room.id);
+                    if (updatedRoom) {
+                      const updatedMember = updatedRoom.members.find(m => m.id === member.id);
+                      setShowMemberHistory({
+                        room: updatedRoom,
+                        member: updatedMember
+                      });
+                    }
+                    
+                    alert('Đã xóa giao dịch và cập nhật điểm!');
+                  }}
+                  className="text-red-600 hover:bg-red-50 p-1 rounded"
+                  title="Xóa"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </td>
+          </tr>
+        );
+      })
+  ) : (
+    <tr>
+      <td colSpan="7" className="px-3 py-8 text-center text-gray-500">
+        Chưa có lịch sử giao dịch
+      </td>
+    </tr>
+  )}
+</tbody>
         </table>
       </div>
       
