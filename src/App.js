@@ -666,177 +666,201 @@ const handleAddTransaction = () => {
 
     let points = 0;
     
-// TÍNH ĐIỂM THEO LOẠI GIAO DỊCH
-  if (isFreeTransaction) {
-    points = 0;
-  } else if (isAddPointTransaction) {
-    if (!manualPoints) {
-      alert('Vui lòng nhập số điểm cộng thủ công!');
-      return;
-    }
-    points = parseFloat(manualPoints);
-    if (isNaN(points) || points <= 0) {
-      alert('Điểm thủ công không hợp lệ!');
-      return;
-    }
-    // ✅ LÀM TRÒN 1 chữ số thập phân
-    points = Math.round(points * 10) / 10;
-  } else {
-    points = calculatePoints(priceNum, room.rule);
-    
-    if (points === null) {
+    // TÍNH ĐIỂM THEO LOẠI GIAO DỊCH
+    if (isFreeTransaction) {
+      points = 0;
+    } else if (isAddPointTransaction) {
       if (!manualPoints) {
-        alert('Giá trị vượt quy tắc! Vui lòng nhập điểm thủ công.');
+        alert('Vui lòng nhập số điểm cộng thủ công!');
         return;
       }
-      points = parseFloat(manualPoints);
-      if (isNaN(points) || points <= 0) {
+      
+      // ✅ FIX: Làm tròn NGAY khi đọc từ input
+      const rawPoints = parseFloat(manualPoints);
+      if (isNaN(rawPoints) || rawPoints <= 0) {
         alert('Điểm thủ công không hợp lệ!');
         return;
       }
-      // ✅ LÀM TRÒN 1 chữ số thập phân
-      points = Math.round(points * 10) / 10;
+      
+      // ✅ Làm tròn 1 lần duy nhất
+      points = parseFloat(rawPoints.toFixed(1));
+      
+      console.log('🔍 Manual Points Debug:', {
+        input: manualPoints,
+        parsed: rawPoints,
+        rounded: points
+      });
+      
+    } else {
+      points = calculatePoints(priceNum, room.rule);
+      
+      if (points === null) {
+        if (!manualPoints) {
+          alert('Giá trị vượt quy tắc! Vui lòng nhập điểm thủ công.');
+          return;
+        }
+        const rawPoints = parseFloat(manualPoints);
+        if (isNaN(rawPoints) || rawPoints <= 0) {
+          alert('Điểm thủ công không hợp lệ!');
+          return;
+        }
+        points = parseFloat(rawPoints.toFixed(1));
+      }
     }
-  }
 
-  // ✅ THÊM LOG để kiểm tra
-  console.log('💰 Points calculated:', points);
+    // ✅ Log kiểm tra điểm cuối cùng
+    console.log('💰 Final Points:', points);
 
-  const deliverer = room.members.find(m => m.id === parseInt(delivererId));
-  const receiver = room.members.find(m => m.id === parseInt(receiverId));
+    const deliverer = room.members.find(m => m.id === parseInt(delivererId));
+    const receiver = room.members.find(m => m.id === parseInt(receiverId));
 
-  if (!deliverer || !receiver) {
-    alert('Không tìm thấy thành viên!');
-    return;
-  }
+    if (!deliverer || !receiver) {
+      alert('Không tìm thấy thành viên!');
+      return;
+    }
 
-  const dateObj = new Date(date);
-  const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+    const dateObj = new Date(date);
+    const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
 
-// XÁC ĐỊNH VAI TRÒ VÀ ĐIỂM
-let delivererRole, receiverRole, delivererPoints, receiverPoints;
-
-  if (isFreeTransaction) {
-    delivererRole = 'Giao Free';
-    receiverRole = 'Nhận Free';
-    delivererPoints = 0;
-    receiverPoints = 0;
-  } else if (isAddPointTransaction) {
-    delivererRole = 'Trừ điểm';
-    receiverRole = 'Cộng điểm';
-    delivererPoints = -points;  // ❌ BỎ Math.round
-    receiverPoints = points;     // ❌ BỎ Math.round
-  } else {
-    delivererRole = 'Giao';
-    receiverRole = 'Nhận';
-    delivererPoints = points;    // ❌ BỎ Math.round
-    receiverPoints = -points;    // ❌ BỎ Math.round
-  }
-
-  console.log('📊 Final points:', {
-    delivererPoints,
-    receiverPoints
-  });
-
-  const delivererTransaction = {
-    date: formattedDate,
-    description: description,
-    price: priceNum,
-    role: delivererRole,
-    partner: receiver.name,
-    points: delivererPoints
-  };
-
-  const receiverTransaction = {
-    date: formattedDate,
-    description: description,
-    price: priceNum,
-    role: receiverRole,
-    partner: deliverer.name,
-    points: receiverPoints
-  };
-
-  setRooms(rooms.map(r => {
-    if (r.id !== roomId) return r;
-
-    const newTransactions = { ...r.transactions };
-    if (!newTransactions[deliverer.id]) newTransactions[deliverer.id] = [];
-    if (!newTransactions[receiver.id]) newTransactions[receiver.id] = [];
+    // XÁC ĐỊNH VAI TRÒ VÀ ĐIỂM
+    let delivererRole, receiverRole, delivererPoints, receiverPoints;
     
-    newTransactions[deliverer.id] = [...newTransactions[deliverer.id], delivererTransaction];
-    newTransactions[receiver.id] = [...newTransactions[receiver.id], receiverTransaction];
+    if (isFreeTransaction) {
+      delivererRole = 'Giao Free';
+      receiverRole = 'Nhận Free';
+      delivererPoints = 0;
+      receiverPoints = 0;
+    } else if (isAddPointTransaction) {
+      delivererRole = 'Trừ điểm';
+      receiverRole = 'Cộng điểm';
+      // ✅ FIX: Không làm tròn nữa vì đã làm tròn ở trên
+      delivererPoints = -points;
+      receiverPoints = points;
+    } else {
+      delivererRole = 'Giao';
+      receiverRole = 'Nhận';
+      delivererPoints = points;
+      receiverPoints = -points;
+    }
 
-    const currentDate = dateColumns[2];
-    const newMembers = r.members.map(m => {
-  if (!m.points[currentDate]) {
-    m.points[currentDate] = m.totalPoints || 0;
-  }
-  if (m.totalPoints === undefined) {
-    m.totalPoints = m.points[currentDate] || 0;
-  }
-  
-  if (m.id === deliverer.id && !isFreeTransaction) {
-    // ✅ Cộng trực tiếp, SAU ĐÓ làm tròn 1 lần
-    const newTotal = parseFloat((m.totalPoints + delivererPoints).toFixed(1));
-    return {
-      ...m,
-      points: {
-        ...m.points,
-        [currentDate]: newTotal
-      },
-      totalPoints: newTotal
-    };
-  }
-  if (m.id === receiver.id && !isFreeTransaction) {
-    // ✅ Cộng trực tiếp, SAU ĐÓ làm tròn 1 lần
-    const newTotal = parseFloat((m.totalPoints + receiverPoints).toFixed(1));
-    return {
-      ...m,
-      points: {
-        ...m.points,
-        [currentDate]: newTotal
-      },
-      totalPoints: newTotal
-    };
-  }
-  return m;
-});
+    console.log('📊 Transaction Points:', {
+      delivererPoints,
+      receiverPoints
+    });
 
-    return {
-      ...r,
-      transactions: newTransactions,
-      members: newMembers
+    const delivererTransaction = {
+      date: formattedDate,
+      description: description,
+      price: priceNum,
+      role: delivererRole,
+      partner: receiver.name,
+      points: delivererPoints
     };
-  }));
 
-  // Reset form...
- setTransactionForm({
-    roomId: null,
-    date: new Date().toISOString().split('T')[0],
-    delivererId: '',
-    receiverId: '',
-    price: '',
-    description: '',
-    manualPoints: '',
-    isAddPointTransaction: false,
-    isFreeTransaction: false
+    const receiverTransaction = {
+      date: formattedDate,
+      description: description,
+      price: priceNum,
+      role: receiverRole,
+      partner: deliverer.name,
+      points: receiverPoints
+    };
+
+    setRooms(rooms.map(r => {
+      if (r.id !== roomId) return r;
+
+      const newTransactions = { ...r.transactions };
+      if (!newTransactions[deliverer.id]) newTransactions[deliverer.id] = [];
+      if (!newTransactions[receiver.id]) newTransactions[receiver.id] = [];
+      
+      newTransactions[deliverer.id] = [...newTransactions[deliverer.id], delivererTransaction];
+      newTransactions[receiver.id] = [...newTransactions[receiver.id], receiverTransaction];
+
+      const currentDate = dateColumns[2];
+      const newMembers = r.members.map(m => {
+        if (!m.points[currentDate]) {
+          m.points[currentDate] = m.totalPoints || 0;
+        }
+        if (m.totalPoints === undefined) {
+          m.totalPoints = m.points[currentDate] || 0;
+        }
+        
+        if (m.id === deliverer.id && !isFreeTransaction) {
+          // ✅ FIX: Làm tròn sau khi cộng
+          const newTotal = parseFloat((m.totalPoints + delivererPoints).toFixed(1));
+          
+          console.log(`✅ ${m.name} (Deliverer):`, {
+            oldTotal: m.totalPoints,
+            change: delivererPoints,
+            newTotal
+          });
+          
+          return {
+            ...m,
+            points: {
+              ...m.points,
+              [currentDate]: newTotal
+            },
+            totalPoints: newTotal
+          };
+        }
+        if (m.id === receiver.id && !isFreeTransaction) {
+          // ✅ FIX: Làm tròn sau khi cộng
+          const newTotal = parseFloat((m.totalPoints + receiverPoints).toFixed(1));
+          
+          console.log(`✅ ${m.name} (Receiver):`, {
+            oldTotal: m.totalPoints,
+            change: receiverPoints,
+            newTotal
+          });
+          
+          return {
+            ...m,
+            points: {
+              ...m.points,
+              [currentDate]: newTotal
+            },
+            totalPoints: newTotal
+          };
+        }
+        return m;
+      });
+
+      return {
+        ...r,
+        transactions: newTransactions,
+        members: newMembers
+      };
+    }));
+
+    // Reset form...
+    setTransactionForm({
+      roomId: null,
+      date: new Date().toISOString().split('T')[0],
+      delivererId: '',
+      receiverId: '',
+      price: '',
+      description: '',
+      manualPoints: '',
+      isAddPointTransaction: false,
+      isFreeTransaction: false
     });
     setShowTransactionForm(false);
     setDelivererSearch('');
     setReceiverSearch('');
     setShowDelivererDropdown(false);
     setShowReceiverDropdown(false);
-  
-  let successMsg;
-  if (isFreeTransaction) {
-    successMsg = `Đã thêm giao dịch Free (0 điểm) cho ${receiver.name}!`;
-  } else if (isAddPointTransaction) {
-    successMsg = `Đã cộng ${points} điểm cho ${receiver.name}, trừ ${points} điểm từ ${deliverer.name}!`;
-  } else {
-    successMsg = 'Thêm giao dịch thành công!';
-  }
-  
-  alert(successMsg);
+    
+    let successMsg;
+    if (isFreeTransaction) {
+      successMsg = `Đã thêm giao dịch Free (0 điểm) cho ${receiver.name}!`;
+    } else if (isAddPointTransaction) {
+      successMsg = `Đã cộng ${points} điểm cho ${receiver.name}, trừ ${points} điểm từ ${deliverer.name}!`;
+    } else {
+      successMsg = 'Thêm giao dịch thành công!';
+    }
+    
+    alert(successMsg);
 };
   const handleAddMember = () => {
     const { roomId, id, name, deadline, note, initialPoints } = memberForm;
