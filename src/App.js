@@ -274,27 +274,6 @@ const RoomManagementSystem = () => {
     }
   }, []);
 
-  // ✅ THÊM: Xóa session khi đóng tab/thoát trang
-  useEffect(() => {
-    const handleBeforeUnload = async (e) => {
-      if (isAdminAuthenticated) {
-        await clearAdminSession(database);
-        
-        // Clear heartbeat interval
-        const intervalId = sessionStorage.getItem('heartbeatInterval');
-        if (intervalId) {
-          clearInterval(parseInt(intervalId));
-        }
-      }
-    };
-    
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [isAdminAuthenticated]);
-
   const [currentView, setCurrentView] = useState('home');
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [rooms, setRooms] = useState([]);
@@ -360,6 +339,28 @@ const RoomManagementSystem = () => {
   const [showReceiverDropdown, setShowReceiverDropdown] = useState(false);
   //const [showMemberHistory, setShowMemberHistory] = useState(null);
   //const [editingHistoryTransaction, setEditingHistoryTransaction] = useState(null);
+
+// ✅ THÊM: Xóa session khi đóng tab/thoát trang
+useEffect(() => {
+  const handleBeforeUnload = async (e) => {
+    if (isAdminAuthenticated) {
+      await clearAdminSession(database);
+      
+      // Clear heartbeat interval
+      const intervalId = sessionStorage.getItem('heartbeatInterval');
+      if (intervalId) {
+        clearInterval(parseInt(intervalId));
+      }
+    }
+  };
+  
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  
+  return () => {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+  };
+}, [isAdminAuthenticated]);
+
 // Ctrl + Shift + X
 useEffect(() => {
   const handleKeyPress = (e) => {
