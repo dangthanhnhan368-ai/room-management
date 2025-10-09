@@ -612,29 +612,38 @@ const handleAdminLogin = async () => {
   };
 
   const migratePointsToNewDay = (rooms, dateColumns) => {
-    return rooms.map(room => ({
-    ...room,
-    members: room.members.map(member => {
-      const newPoints = { ...member.points };
-      const latestDate = dateColumns[2]; // Ngày mới nhất
-      
-      // Lấy totalPoints hoặc điểm từ ngày trước
-      const currentTotal = member.totalPoints !== undefined 
-        ? member.totalPoints 
-        : (newPoints[dateColumns[1]] || newPoints[dateColumns[0]] || 0);
-      
-      // Nếu chưa có điểm cho ngày mới, dùng totalPoints
-      if (newPoints[latestDate] === undefined) {
-        newPoints[latestDate] = currentTotal;
-      }
-      
-      return {
-        ...member,
-        points: newPoints,
-        totalPoints: currentTotal // Lưu totalPoints
-      };
-    })
-    }));
+      return rooms.map(room => ({
+        ...room,
+        members: room.members.map(member => {
+          const newPoints = { ...member.points };
+          const latestDate = dateColumns[2]; // Ngày mới nhất (hôm nay)
+          
+          // ✅ Lấy totalPoints hiện tại (điểm tích lũy)
+          const currentTotal = member.totalPoints !== undefined 
+            ? member.totalPoints 
+            : (newPoints[dateColumns[1]] || newPoints[dateColumns[0]] || 0);
+          
+          // ✅ FIX: Chỉ migrate sang ngày MỚI nếu chưa có
+          if (newPoints[latestDate] === undefined) {
+            newPoints[latestDate] = currentTotal;
+          }
+          
+          // ✅ FIX: Đảm bảo 2 ngày cũ KHÔNG bị ghi đè
+          // Nếu chưa có dữ liệu lịch sử thì mặc định = 0
+          if (newPoints[dateColumns[0]] === undefined) {
+            newPoints[dateColumns[0]] = 0;
+          }
+          if (newPoints[dateColumns[1]] === undefined) {
+            newPoints[dateColumns[1]] = 0;
+          }
+          
+          return {
+            ...member,
+            points: newPoints,
+            totalPoints: currentTotal
+          };
+        })
+      }));
   };
 
 const handleAddTransaction = () => {
@@ -863,69 +872,70 @@ const handleAddTransaction = () => {
     alert(successMsg);
 };
   const handleAddMember = () => {
-    const { roomId, id, name, deadline, note, initialPoints } = memberForm;
-    
-    if (!roomId || id === '' || !name) {
-      alert('Vui lòng điền đầy đủ thông tin bắt buộc (Room, ID, Tên)!');
-      return;
-    }
+      const { roomId, id, name, deadline, note, initialPoints } = memberForm;
+      
+      if (!roomId || id === '' || !name) {
+        alert('Vui lòng điền đầy đủ thông tin bắt buộc (Room, ID, Tên)!');
+        return;
+      }
 
-    const memberId = parseInt(id);
-    if (isNaN(memberId)) {
-      alert('ID phải là số!');
-      return;
-    }
+      const memberId = parseInt(id);
+      if (isNaN(memberId)) {
+        alert('ID phải là số!');
+        return;
+      }
 
-    const points = parseFloat(initialPoints);
-    if (isNaN(points)) {
-      alert('Điểm khởi đầu không hợp lệ!');
-      return;
-    }
+      const points = parseFloat(initialPoints);
+      if (isNaN(points)) {
+        alert('Điểm khởi đầu không hợp lệ!');
+        return;
+      }
 
-    const room = rooms.find(r => r.id === roomId);
-    if (!room) return;
+      const room = rooms.find(r => r.id === roomId);
+      if (!room) return;
 
-    if (room.members.some(m => m.id === memberId)) {
-      alert('ID này đã tồn tại trong Room! Vui lòng chọn ID khác.');
-      return;
-    }
+      if (room.members.some(m => m.id === memberId)) {
+        alert('ID này đã tồn tại trong Room! Vui lòng chọn ID khác.');
+        return;
+      }
 
-  const newMember = {
-    id: memberId,
-    name: name.trim(),
-    points: {
-      [dateColumns[0]]: points,
-      [dateColumns[1]]: points,
-      [dateColumns[2]]: points
-    },
-    totalPoints: points, // THÊM totalPoints
-    deadline: deadline || '',
-    note: note || ''
-  };
-
-    setRooms(rooms.map(r => {
-      if (r.id !== roomId) return r;
-      return {
-        ...r,
-        members: [...r.members, newMember],
-        transactions: {
-          ...r.transactions,
-          [memberId]: []
-        }
+      // ✅ FIX: Chỉ gán điểm cho NGÀY MỚI NHẤT (ngày hôm nay)
+      const newMember = {
+        id: memberId,
+        name: name.trim(),
+        points: {
+          [dateColumns[0]]: 0,        // ✅ Ngày cũ nhất = 0 (chưa tồn tại)
+          [dateColumns[1]]: 0,        // ✅ Ngày giữa = 0 (chưa tồn tại)
+          [dateColumns[2]]: points    // ✅ Ngày mới nhất = điểm khởi đầu
+        },
+        totalPoints: points, // ✅ totalPoints = điểm hiện tại
+        deadline: deadline || '',
+        note: note || ''
       };
-    }));
 
-    setMemberForm({
-      roomId: null,
-      id: '',
-      name: '',
-      deadline: '',
-      note: '',
-      initialPoints: '0'
-    });
-    setShowMemberForm(false);
-    
-    alert(`Đã thêm thành viên "${name}" với điểm khởi đầu ${points}!`);
+      setRooms(rooms.map(r => {
+        if (r.id !== roomId) return r;
+        return {
+          ...r,
+          members: [...r.members, newMember],
+          transactions: {
+            ...r.transactions,
+            [memberId]: []
+          }
+        };
+      }));
+
+      setMemberForm({
+        roomId: null,
+        id: '',
+        name: '',
+        deadline: '',
+        note: '',
+        initialPoints: '0'
+      });
+      setShowMemberForm(false);
+      
+      alert(`Đã thêm thành viên "${name}" với điểm khởi đầu ${points} (chỉ tính cho ngày ${dateColumns[2]})!`);
   };
 
   const handleCreateRoom = () => {
@@ -3372,15 +3382,22 @@ const handleDeleteTransaction = (transaction, room) => {
                     <td className="px-4 py-3 text-blue-600 font-medium hover:underline">
                       {member.name}
                     </td>
-                    {dateColumns.map(date => (
-                      <td
-                        key={date}
-                        className={`px-4 py-3 text-center font-semibold ${getPointColor(member.points[date] || 0)}`}
-                      >
-                        {member.points[date] || 0}
-                      </td>
-                    ))}
-                    <td className="px-4 py-3 text-center text-sm">{member.deadline}</td>
+                      {dateColumns.map(date => {
+                        // ✅ FIX: Hiển thị chính xác điểm theo ngày
+                        const displayPoint = member.points[date] !== undefined 
+                          ? member.points[date] 
+                          : 0;
+                          
+                        return (
+                          <td
+                            key={date}
+                            className={`px-4 py-3 text-center font-semibold ${getPointColor(displayPoint)}`}
+                          >
+                            {displayPoint}
+                          </td>
+                        );
+                      })}
+                                      <td className="px-4 py-3 text-center text-sm">{member.deadline}</td>
                     <td className="px-4 py-3 text-center text-sm">{member.note}</td>
                   </tr>
                 ))}
