@@ -96,28 +96,61 @@ const convertFromFirebase = (rooms) => {
   }
 };
 // ✅ Hàm kiểm tra và set admin session
+// ✅ Hàm kiểm tra và set admin session - PHIÊN BẢN CẢI TIẾN
 const checkAndSetAdminSession = async (database) => {
   const sessionRef = ref(database, 'adminSession');
+  const mySessionId = Date.now().toString() + Math.random().toString(36);
   
   try {
     const snapshot = await get(sessionRef);
     const currentSession = snapshot.val();
-    const mySessionId = Date.now().toString() + Math.random().toString(36);
     
-    // Kiểm tra session hiện tại (timeout 1 giờ)
-    if (currentSession && Date.now() - currentSession.timestamp < 3600000) {
-      // Có admin khác đang đăng nhập
-      return { 
-        success: false, 
-        message: '⚠️ Đã có Admin khác đang đăng nhập!\n\nVui lòng thử lại sau hoặc liên hệ admin hiện tại để đăng xuất.' 
-      };
+    // ✅ THAY ĐỔI 1: Giảm timeout xuống 15 phút
+    const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 phút (thay vì 1 giờ)
+    
+    // ✅ THAY ĐỔI 2: Cho phép "đá" session cũ
+    if (currentSession && Date.now() - currentSession.timestamp < SESSION_TIMEOUT) {
+      const confirmForceLogin = window.confirm(
+        '⚠️ Đã có phiên đăng nhập khác đang hoạt động.\n\n' +
+        `Thiết bị: ${currentSession.device || 'Không xác định'}\n` +
+        `Thời gian đăng nhập: ${currentSession.loginTime}\n\n` +
+        '👉 Bạn có muốn ĐÁ phiên đăng nhập cũ và tiếp tục không?'
+      );
+      
+      if (!confirmForceLogin) {
+        return { 
+          success: false, 
+          message: 'Bạn đã hủy đăng nhập' 
+        };
+      }
+      
+      // ✅ Đánh dấu session cũ bị đá
+      await set(sessionRef, {
+        ...currentSession,
+        forceLogout: true,
+        forceLogoutTime: Date.now()
+      });
+      
+      // Đợi 1 giây để thiết bị cũ nhận tín hiệu
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
+    
+    // ✅ THAY ĐỔI 3: Lưu thông tin thiết bị
+    const deviceInfo = /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent) 
+      ? '📱 Điện thoại' 
+      : '💻 Máy tính';
+    
+    const browserInfo = navigator.userAgent.includes('Chrome') ? 'Chrome' :
+                       navigator.userAgent.includes('Firefox') ? 'Firefox' :
+                       navigator.userAgent.includes('Safari') ? 'Safari' : 'Khác';
     
     // Set session mới
     await set(sessionRef, {
       sessionId: mySessionId,
       timestamp: Date.now(),
-      loginTime: new Date().toLocaleString('vi-VN')
+      loginTime: new Date().toLocaleString('vi-VN'),
+      device: `${deviceInfo} - ${browserInfo}`,
+      forceLogout: false
     });
     
     // Lưu session ID vào sessionStorage
@@ -469,9 +502,60 @@ useEffect(() => {
 }, [rooms, isFirebaseAuthenticated, isLoadingFromFirebase]);
 
 
-  const currentDate = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+// ✅ Auto cleanup session khi đóng tab/trình duyệt - CẢI TIẾN
+useEffect(() => {
+  const handleBeforeUnload = (e) => {
+    const mySessionId = sessionStorage.getItem('adminSessionId');
+    
+    if (mySessionId && isAdminAuthenticated) {
+      // ✅ Dùng sendBeacon để gửi request ngay cả khi tab đóng
+      const sessionRef = ref(database, 'adminSession');
+      const sessionPath = sessionRef.toString();
+      
+      // Clear session bằng fetch với keepalive
+      fetch(sessionPath + '.json', {
+        method: 'DELETE',
+        keepalive: true, // ✅ Đảm bảo request hoàn thành kể cả khi tab đóng
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).catch(err => console.error('Cleanup error:', err));
+      
+      // Clear local data
+      sessionStorage.removeItem('adminSessionId');
+      const heartbeatInterval = sessionStorage.getItem('heartbeatInterval');
+      if (heartbeatInterval) {
+        clearInterval(parseInt(heartbeatInterval));
+        sessionStorage.removeItem('heartbeatInterval');
+      }
+      
+      console.log('🧹 Cleaning up session on tab close');
+    }
+  };
+  
+  // ✅ Lắng nghe cả beforeunload và visibilitychange
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  
+  // ✅ Thêm: Cleanup khi tab bị ẩn (mobile/background)
+  const handleVisibilityChange = () => {
+    if (document.hidden && isAdminAuthenticated) {
+      console.log('📴 Tab hidden - session still active');
+    }
+  };
+  
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  
+  return () => {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
+}, [isAdminAuthenticated]);
+
+
+const currentDate = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   // Hàm lọc thành viên theo tên
+
 // ✅ Hàm lọc thành viên theo tên - CẢI TIẾN với tìm kiếm không dấu
   const filterMembers = (members, searchTerm) => {
     if (!searchTerm || searchTerm.trim() === '') return members;
@@ -682,27 +766,42 @@ const handleAdminLogin = async () => {
       setCurrentView('admin');
       alert('Đăng nhập thành công!');
       
-      // ✅ BƯỚC 3: Tạo heartbeat để duy trì session
-      const heartbeatInterval = setInterval(async () => {
-        const mySessionId = sessionStorage.getItem('adminSessionId');
-        const sessionRef = ref(database, 'adminSession');
-        const snapshot = await get(sessionRef);
-        const currentSession = snapshot.val();
-        
-        if (currentSession && currentSession.sessionId === mySessionId) {
-          await set(sessionRef, {
-            ...currentSession,
-            timestamp: Date.now()
-          });
-        } else {
-          clearInterval(heartbeatInterval);
-          alert('⚠️ Phiên đăng nhập của bạn đã bị đăng xuất do có Admin khác đăng nhập!');
-          await signOut(auth);
-          setCurrentView('home');
-          setIsAdminAuthenticated(false);
-        }
-      }, 60000);
+    
+     // ✅ BƯỚC 3: Tạo heartbeat CẢI TIẾN - Nhanh hơn và phát hiện "đá" session
+    const heartbeatInterval = setInterval(async () => {
+      const mySessionId = sessionStorage.getItem('adminSessionId');
+      const sessionRef = ref(database, 'adminSession');
+      const snapshot = await get(sessionRef);
+      const currentSession = snapshot.val();
       
+      // ✅ THAY ĐỔI 4: Kiểm tra bị "đá" từ thiết bị khác
+      if (currentSession && currentSession.forceLogout && currentSession.sessionId !== mySessionId) {
+        clearInterval(heartbeatInterval);
+        sessionStorage.removeItem('heartbeatInterval');
+        alert('⚠️ Phiên đăng nhập của bạn đã bị ĐÁ từ thiết bị khác!\n\nBạn sẽ bị đăng xuất.');
+        await signOut(auth);
+        setCurrentView('home');
+        setIsAdminAuthenticated(false);
+        return;
+      }
+      
+      // ✅ Kiểm tra session có còn là của mình không
+      if (currentSession && currentSession.sessionId === mySessionId) {
+        await set(sessionRef, {
+          ...currentSession,
+          timestamp: Date.now()
+        });
+        console.log('💓 Heartbeat: Session đang hoạt động');
+      } else {
+        clearInterval(heartbeatInterval);
+        sessionStorage.removeItem('heartbeatInterval');
+        alert('⚠️ Phiên đăng nhập của bạn đã hết hạn hoặc bị thay thế!');
+        await signOut(auth);
+        setCurrentView('home');
+        setIsAdminAuthenticated(false);
+      }
+    }, 30000); // ✅ THAY ĐỔI 5: Giảm xuống 30 giây (thay vì 60s)
+
       sessionStorage.setItem('heartbeatInterval', heartbeatInterval);
       
     } catch (error) {
@@ -2031,8 +2130,12 @@ const handleDeleteTransaction = (transaction, room) => {
       <span className="sm:hidden">Reload</span>
     </button>
     
-   <button
+<button
   onClick={async () => {
+    // ✅ Xác nhận trước khi đăng xuất
+    const confirmLogout = window.confirm('Bạn có chắc chắn muốn đăng xuất?');
+    if (!confirmLogout) return;
+    
     try {
       // ✅ BƯỚC 1: Xóa admin session trên Firebase
       const mySessionId = sessionStorage.getItem('adminSessionId');
@@ -2043,6 +2146,7 @@ const handleDeleteTransaction = (transaction, room) => {
       // Chỉ xóa nếu đúng session của mình
       if (currentSession && currentSession.sessionId === mySessionId) {
         await set(sessionRef, null);
+        console.log('🗑️ Deleted session from Firebase');
       }
       
       // ✅ BƯỚC 2: Xóa heartbeat interval
@@ -2050,6 +2154,7 @@ const handleDeleteTransaction = (transaction, room) => {
       if (heartbeatInterval) {
         clearInterval(parseInt(heartbeatInterval));
         sessionStorage.removeItem('heartbeatInterval');
+        console.log('⏹️ Stopped heartbeat');
       }
       
       // ✅ BƯỚC 3: Xóa session ID local
@@ -2060,7 +2165,7 @@ const handleDeleteTransaction = (transaction, room) => {
       setCurrentView('home');
       setIsAdminAuthenticated(false);
       setAdminPassword('');
-      alert('Đã đăng xuất thành công!');
+      alert('✅ Đã đăng xuất thành công!');
     } catch (error) {
       console.error('Logout error:', error);
       alert('Lỗi khi đăng xuất: ' + error.message);
@@ -2084,8 +2189,18 @@ const handleDeleteTransaction = (transaction, room) => {
     </span>
   </p>
   <p className="text-sm text-blue-800">
+    👤 Admin Session: <span className={`font-semibold ${isAdminAuthenticated ? 'text-green-600' : 'text-red-600'}`}>
+      {isAdminAuthenticated ? 'Đang hoạt động' : 'Không hoạt động'}
+    </span>
+  </p>
+  <p className="text-sm text-blue-800">
     💾 Tổng số Room: <span className="font-semibold">{rooms.length}</span>
   </p>
+  {isAdminAuthenticated && sessionStorage.getItem('adminSessionId') && (
+    <p className="text-xs text-blue-600 mt-2">
+      🔑 Session ID: {sessionStorage.getItem('adminSessionId').slice(0, 12)}...
+    </p>
+  )}
   <p className="text-xs text-blue-600 mt-2">
     💡 Chỉ Admin đã đăng nhập mới có thể chỉnh sửa dữ liệu
   </p>
