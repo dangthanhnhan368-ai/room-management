@@ -2535,10 +2535,17 @@ const handleDeleteTransaction = (transaction, room) => {
                       type="number"
                       step="0.1"
                       value={transactionForm.manualPoints}
-                      onChange={(e) => setTransactionForm({...transactionForm, manualPoints: e.target.value})}
-                      placeholder="Nhập số điểm..."
+                      onChange={(e) =>
+                        setTransactionForm({ ...transactionForm, manualPoints: e.target.value })
+                      }
+                      onWheel={(e) => e.currentTarget.blur()}              // ⬅ chặn lăn chuột khi đang focus
+                      onKeyDown={(e) => {                                  // ⬅ chặn mũi tên ↑/↓
+                        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
+                      }}
+                      inputMode="decimal"                                   // gợi ý bàn phím số trên mobile
                       className="w-full px-4 py-2 border-2 border-orange-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
+
                     <p className="text-xs text-orange-700 mt-2">
                       {transactionForm.isAddPointTransaction 
                         ? '💡 Giao dịch cộng điểm: Người giao bị trừ số điểm này, người nhận được cộng số điểm này'
