@@ -5,14 +5,12 @@ import { database } from './firebase';
 import { ref, set, onValue, get } from 'firebase/database';
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-const hashPassword = (password) => {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(16);
+const hashPassword = async (password) => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
 // Hash chuẩn của password (tạo sẵn)
@@ -97,7 +95,43 @@ const convertFromFirebase = (rooms) => {
     return [];
   }
 };
-
+// ✅ Hàm kiểm tra và set admin session
+const checkAndSetAdminSession = async (database) => {
+  const sessionRef = ref(database, 'adminSession');
+  
+  try {
+    const snapshot = await get(sessionRef);
+    const currentSession = snapshot.val();
+    const mySessionId = Date.now().toString() + Math.random().toString(36);
+    
+    // Kiểm tra session hiện tại (timeout 1 giờ)
+    if (currentSession && Date.now() - currentSession.timestamp < 3600000) {
+      // Có admin khác đang đăng nhập
+      return { 
+        success: false, 
+        message: '⚠️ Đã có Admin khác đang đăng nhập!\n\nVui lòng thử lại sau hoặc liên hệ admin hiện tại để đăng xuất.' 
+      };
+    }
+    
+    // Set session mới
+    await set(sessionRef, {
+      sessionId: mySessionId,
+      timestamp: Date.now(),
+      loginTime: new Date().toLocaleString('vi-VN')
+    });
+    
+    // Lưu session ID vào sessionStorage
+    sessionStorage.setItem('adminSessionId', mySessionId);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error checking admin session:', error);
+    return { 
+      success: false, 
+      message: 'Lỗi khi kiểm tra phiên đăng nhập: ' + error.message 
+    };
+  }
+};
 // Sample data for rooms
 const initialRooms = [
   {
@@ -1997,23 +2031,45 @@ const handleDeleteTransaction = (transaction, room) => {
       <span className="sm:hidden">Reload</span>
     </button>
     
-    <button
-      onClick={async () => {
-        try {
-          await signOut(auth);
-          setCurrentView('home');
-          setIsAdminAuthenticated(false);
-          setAdminPassword('');
-          alert('Đã đăng xuất thành công!');
-        } catch (error) {
-          console.error('Logout error:', error);
-          alert('Lỗi khi đăng xuất: ' + error.message);
-        }
-      }}
-      className="flex items-center justify-center gap-1 md:gap-2 bg-red-500 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-red-600 text-xs md:text-sm col-span-2 md:col-span-1"
-    >
-      Đăng xuất
-    </button>
+   <button
+  onClick={async () => {
+    try {
+      // ✅ BƯỚC 1: Xóa admin session trên Firebase
+      const mySessionId = sessionStorage.getItem('adminSessionId');
+      const sessionRef = ref(database, 'adminSession');
+      const snapshot = await get(sessionRef);
+      const currentSession = snapshot.val();
+      
+      // Chỉ xóa nếu đúng session của mình
+      if (currentSession && currentSession.sessionId === mySessionId) {
+        await set(sessionRef, null);
+      }
+      
+      // ✅ BƯỚC 2: Xóa heartbeat interval
+      const heartbeatInterval = sessionStorage.getItem('heartbeatInterval');
+      if (heartbeatInterval) {
+        clearInterval(parseInt(heartbeatInterval));
+        sessionStorage.removeItem('heartbeatInterval');
+      }
+      
+      // ✅ BƯỚC 3: Xóa session ID local
+      sessionStorage.removeItem('adminSessionId');
+      
+      // ✅ BƯỚC 4: Đăng xuất Firebase
+      await signOut(auth);
+      setCurrentView('home');
+      setIsAdminAuthenticated(false);
+      setAdminPassword('');
+      alert('Đã đăng xuất thành công!');
+    } catch (error) {
+      console.error('Logout error:', error);
+      alert('Lỗi khi đăng xuất: ' + error.message);
+    }
+  }}
+  className="flex items-center justify-center gap-1 md:gap-2 bg-red-500 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-red-600 text-xs md:text-sm col-span-2 md:col-span-1"
+>
+  Đăng xuất
+</button>
   </div>
 </div>
 <div className="space-y-6">
