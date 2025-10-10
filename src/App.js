@@ -5,6 +5,18 @@ import { database } from './firebase';
 import { ref, set, onValue, get } from 'firebase/database';
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+const hashPassword = (password) => {
+  let hash = 0;
+  for (let i = 0; i < password.length; i++) {
+    const char = password.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16);
+};
+
+// Hash chuẩn của password (tạo sẵn)
+const ADMIN_PASSWORD_HASH = 'aa5ff7ddeca7848ed7eb16270306d14ba2f7b65171ca0e700ec2e2adda115b83';
 const removeVietnameseTones = (str) => {
   if (!str) return '';
   str = str.toLowerCase();
@@ -612,9 +624,20 @@ workbook.SheetNames.slice(1).forEach(sheetName => {
 };
 
 const handleAdminLogin = async () => {
-  if (adminPassword === 'admin112233') {
+  // ✅ So sánh hash thay vì plain text
+  const inputHash = hashPassword(adminPassword);
+  
+  if (inputHash === ADMIN_PASSWORD_HASH) {
     try {
-      // Đăng nhập Firebase với email/password admin
+      // ✅ BƯỚC 1: KIỂM TRA session trước khi đăng nhập Firebase
+      const sessionCheck = await checkAndSetAdminSession(database);
+      
+      if (!sessionCheck.success) {
+        alert(sessionCheck.message);
+        return;
+      }
+      
+      // ✅ BƯỚC 2: Đăng nhập Firebase
       await signInWithEmailAndPassword(
         auth, 
         'dangthanhnhan368@gmail.com', 
@@ -624,10 +647,33 @@ const handleAdminLogin = async () => {
       setIsAdminAuthenticated(true);
       setCurrentView('admin');
       alert('Đăng nhập thành công!');
+      
+      // ✅ BƯỚC 3: Tạo heartbeat để duy trì session
+      const heartbeatInterval = setInterval(async () => {
+        const mySessionId = sessionStorage.getItem('adminSessionId');
+        const sessionRef = ref(database, 'adminSession');
+        const snapshot = await get(sessionRef);
+        const currentSession = snapshot.val();
+        
+        if (currentSession && currentSession.sessionId === mySessionId) {
+          await set(sessionRef, {
+            ...currentSession,
+            timestamp: Date.now()
+          });
+        } else {
+          clearInterval(heartbeatInterval);
+          alert('⚠️ Phiên đăng nhập của bạn đã bị đăng xuất do có Admin khác đăng nhập!');
+          await signOut(auth);
+          setCurrentView('home');
+          setIsAdminAuthenticated(false);
+        }
+      }, 60000);
+      
+      sessionStorage.setItem('heartbeatInterval', heartbeatInterval);
+      
     } catch (error) {
       console.error('Firebase login error:', error);
       
-      // Hiển thị lỗi cụ thể
       if (error.code === 'auth/invalid-credential') {
         alert('Thông tin đăng nhập không đúng!');
       } else if (error.code === 'auth/network-request-failed') {
