@@ -659,7 +659,7 @@ workbook.SheetNames.slice(1).forEach(sheetName => {
 
 const handleAdminLogin = async () => {
   // ✅ So sánh hash thay vì plain text
-  const inputHash = hashPassword(adminPassword);
+  const inputHash = await hashPassword(adminPassword);
   
   if (inputHash === ADMIN_PASSWORD_HASH) {
     try {
