@@ -747,60 +747,63 @@ const handleAdminLogin = async () => {
   
   if (inputHash === ADMIN_PASSWORD_HASH) {
     try {
-      // ✅ BƯỚC 1: KIỂM TRA session trước khi đăng nhập Firebase
-      const sessionCheck = await checkAndSetAdminSession(database);
-      
-      if (!sessionCheck.success) {
-        alert(sessionCheck.message);
-        return;
-      }
-      
-      // ✅ BƯỚC 2: Đăng nhập Firebase
+      // ✅ BƯỚC 1: ĐĂNG NHẬP FIREBASE TRƯỚC (để có quyền truy cập database)
       await signInWithEmailAndPassword(
         auth, 
         'dangthanhnhan368@gmail.com', 
         'Admin@112233'
       );
       
+      console.log('✅ Firebase login successful');
+      
+      // ✅ BƯỚC 2: KIỂM TRA session SAU (khi đã có quyền)
+      const sessionCheck = await checkAndSetAdminSession(database);
+      
+      if (!sessionCheck.success) {
+        // Nếu session check thất bại, đăng xuất Firebase
+        await signOut(auth);
+        alert(sessionCheck.message);
+        return;
+      }
+      
       setIsAdminAuthenticated(true);
       setCurrentView('admin');
       alert('Đăng nhập thành công!');
       
-    
-     // ✅ BƯỚC 3: Tạo heartbeat CẢI TIẾN - Nhanh hơn và phát hiện "đá" session
-    const heartbeatInterval = setInterval(async () => {
-      const mySessionId = sessionStorage.getItem('adminSessionId');
-      const sessionRef = ref(database, 'adminSession');
-      const snapshot = await get(sessionRef);
-      const currentSession = snapshot.val();
-      
-      // ✅ THAY ĐỔI 4: Kiểm tra bị "đá" từ thiết bị khác
-      if (currentSession && currentSession.forceLogout && currentSession.sessionId !== mySessionId) {
-        clearInterval(heartbeatInterval);
-        sessionStorage.removeItem('heartbeatInterval');
-        alert('⚠️ Phiên đăng nhập của bạn đã bị ĐÁ từ thiết bị khác!\n\nBạn sẽ bị đăng xuất.');
-        await signOut(auth);
-        setCurrentView('home');
-        setIsAdminAuthenticated(false);
-        return;
-      }
-      
-      // ✅ Kiểm tra session có còn là của mình không
-      if (currentSession && currentSession.sessionId === mySessionId) {
-        await set(sessionRef, {
-          ...currentSession,
-          timestamp: Date.now()
-        });
-        console.log('💓 Heartbeat: Session đang hoạt động');
-      } else {
-        clearInterval(heartbeatInterval);
-        sessionStorage.removeItem('heartbeatInterval');
-        alert('⚠️ Phiên đăng nhập của bạn đã hết hạn hoặc bị thay thế!');
-        await signOut(auth);
-        setCurrentView('home');
-        setIsAdminAuthenticated(false);
-      }
-    }, 30000); // ✅ THAY ĐỔI 5: Giảm xuống 30 giây (thay vì 60s)
+      // ✅ BƯỚC 3: Tạo heartbeat để duy trì session
+      const heartbeatInterval = setInterval(async () => {
+        const mySessionId = sessionStorage.getItem('adminSessionId');
+        const sessionRef = ref(database, 'adminSession');
+        const snapshot = await get(sessionRef);
+        const currentSession = snapshot.val();
+        
+        // ✅ THAY ĐỔI 4: Kiểm tra bị "đá" từ thiết bị khác
+        if (currentSession && currentSession.forceLogout && currentSession.sessionId !== mySessionId) {
+          clearInterval(heartbeatInterval);
+          sessionStorage.removeItem('heartbeatInterval');
+          alert('⚠️ Phiên đăng nhập của bạn đã bị ĐÁ từ thiết bị khác!\n\nBạn sẽ bị đăng xuất.');
+          await signOut(auth);
+          setCurrentView('home');
+          setIsAdminAuthenticated(false);
+          return;
+        }
+        
+        // ✅ Kiểm tra session có còn là của mình không
+        if (currentSession && currentSession.sessionId === mySessionId) {
+          await set(sessionRef, {
+            ...currentSession,
+            timestamp: Date.now()
+          });
+          console.log('💓 Heartbeat: Session đang hoạt động');
+        } else {
+          clearInterval(heartbeatInterval);
+          sessionStorage.removeItem('heartbeatInterval');
+          alert('⚠️ Phiên đăng nhập của bạn đã hết hạn hoặc bị thay thế!');
+          await signOut(auth);
+          setCurrentView('home');
+          setIsAdminAuthenticated(false);
+        }
+      }, 30000); // ✅ THAY ĐỔI 5: Giảm xuống 30 giây (thay vì 60s)
 
       sessionStorage.setItem('heartbeatInterval', heartbeatInterval);
       
