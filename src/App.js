@@ -364,6 +364,7 @@ const RoomManagementSystem = () => {
   const [showDelivererDropdown, setShowDelivererDropdown] = useState(false);
   const [showReceiverDropdown, setShowReceiverDropdown] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
+  const [showSystemStatus, setShowSystemStatus] = useState(false);
   //const [showMemberHistory, setShowMemberHistory] = useState(null);
   //const [editingHistoryTransaction, setEditingHistoryTransaction] = useState(null);
 // Ctrl + Shift + X
@@ -2314,32 +2315,47 @@ const handleDeleteTransaction = (transaction, room) => {
   </div>
 </div>
 <div className="space-y-6">
-  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-  <div className="flex items-center gap-2 mb-2">
-    <FileJson size={20} className="text-blue-600" />
-    <h3 className="font-semibold text-blue-900">Trạng thái hệ thống</h3>
-  </div>
-  <p className="text-sm text-blue-800">
-    🔐 Firebase Auth: <span className={`font-semibold ${isFirebaseAuthenticated ? 'text-green-600' : 'text-red-600'}`}>
-      {isFirebaseAuthenticated ? 'Đã đăng nhập' : 'Chưa đăng nhập'}
+  <div className="bg-blue-50 border border-blue-200 rounded-lg overflow-hidden">
+  {/* Header - Click để toggle */}
+  <button
+    onClick={() => setShowSystemStatus(!showSystemStatus)}
+    className="w-full flex items-center justify-between p-4 hover:bg-blue-100 transition"
+  >
+    <div className="flex items-center gap-2">
+      <FileJson size={20} className="text-blue-600" />
+      <h3 className="font-semibold text-blue-900">Trạng thái hệ thống</h3>
+    </div>
+    <span className={`transform transition-transform text-blue-600 ${showSystemStatus ? 'rotate-180' : ''}`}>
+      ▼
     </span>
-  </p>
-  <p className="text-sm text-blue-800">
-    👤 Admin Session: <span className={`font-semibold ${isAdminAuthenticated ? 'text-green-600' : 'text-red-600'}`}>
-      {isAdminAuthenticated ? 'Đang hoạt động' : 'Không hoạt động'}
-    </span>
-  </p>
-  <p className="text-sm text-blue-800">
-    💾 Tổng số Room: <span className="font-semibold">{rooms.length}</span>
-  </p>
-  {isAdminAuthenticated && sessionStorage.getItem('adminSessionId') && (
-    <p className="text-xs text-blue-600 mt-2">
-      🔑 Session ID: {sessionStorage.getItem('adminSessionId').slice(0, 12)}...
-    </p>
+  </button>
+
+  {/* Nội dung - Hiển thị khi showSystemStatus = true */}
+  {showSystemStatus && (
+    <div className="px-4 pb-4 space-y-2 border-t border-blue-200 pt-3">
+      <p className="text-sm text-blue-800">
+        🔐 Firebase Auth: <span className={`font-semibold ${isFirebaseAuthenticated ? 'text-green-600' : 'text-red-600'}`}>
+          {isFirebaseAuthenticated ? 'Đã đăng nhập' : 'Chưa đăng nhập'}
+        </span>
+      </p>
+      <p className="text-sm text-blue-800">
+        👤 Admin Session: <span className={`font-semibold ${isAdminAuthenticated ? 'text-green-600' : 'text-red-600'}`}>
+          {isAdminAuthenticated ? 'Đang hoạt động' : 'Không hoạt động'}
+        </span>
+      </p>
+      <p className="text-sm text-blue-800">
+        💾 Tổng số Room: <span className="font-semibold">{rooms.length}</span>
+      </p>
+      {isAdminAuthenticated && sessionStorage.getItem('adminSessionId') && (
+        <p className="text-xs text-blue-600 mt-2">
+          🔑 Session ID: {sessionStorage.getItem('adminSessionId').slice(0, 12)}...
+        </p>
+      )}
+      <p className="text-xs text-blue-600 mt-2">
+        💡 Chỉ Admin đã đăng nhập mới có thể chỉnh sửa dữ liệu
+      </p>
+    </div>
   )}
-  <p className="text-xs text-blue-600 mt-2">
-    💡 Chỉ Admin đã đăng nhập mới có thể chỉnh sửa dữ liệu
-  </p>
 </div>
 
 <div className="mb-4">
