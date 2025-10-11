@@ -363,6 +363,7 @@ const RoomManagementSystem = () => {
   const [receiverSearch, setReceiverSearch] = useState('');
   const [showDelivererDropdown, setShowDelivererDropdown] = useState(false);
   const [showReceiverDropdown, setShowReceiverDropdown] = useState(false);
+  const [showAdminMenu, setShowAdminMenu] = useState(false);
   //const [showMemberHistory, setShowMemberHistory] = useState(null);
   //const [editingHistoryTransaction, setEditingHistoryTransaction] = useState(null);
 // Ctrl + Shift + X
@@ -2050,156 +2051,266 @@ const handleDeleteTransaction = (transaction, room) => {
   {/* Title */}
   <h1 className="text-xl md:text-2xl font-bold text-gray-800 mb-4">Quản lý Admin</h1>
   
-  {/* Buttons - Responsive Grid */}
-  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:flex xl:flex-wrap gap-2">
-    <button
-      onClick={handleDownloadTemplate}
-      className="flex items-center justify-center gap-1 md:gap-2 bg-indigo-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-indigo-700 text-xs md:text-sm"
-      title="Tải Template Excel"
-    >
-      <Download size={16} className="md:w-[18px] md:h-[18px]" />
-      <span className="hidden sm:inline">Template</span>
-      <span className="sm:hidden">Mẫu</span>
-    </button>
-    
-    <button
-      onClick={handleExportAllRoomsToExcel}
-      className="flex items-center justify-center gap-1 md:gap-2 bg-purple-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-purple-700 text-xs md:text-sm"
-      title="Xuất tất cả Rooms"
-    >
-      <FileJson size={16} className="md:w-[18px] md:h-[18px]" />
-      <span className="hidden sm:inline">Xuất Excel</span>
-      <span className="sm:hidden">Excel</span>
-    </button>
-    
-    <button
-      onClick={handleExportData}
-      className="flex items-center justify-center gap-1 md:gap-2 bg-green-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-green-700 text-xs md:text-sm"
-      title="Xuất dữ liệu JSON"
-    >
-      <Download size={16} className="md:w-[18px] md:h-[18px]" />
-      <span className="hidden sm:inline">Xuất JSON</span>
-      <span className="sm:hidden">JSON</span>
-    </button>
-    
-    <label className="flex items-center justify-center gap-1 md:gap-2 bg-blue-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-blue-700 cursor-pointer text-xs md:text-sm">
-      <Upload size={16} className="md:w-[18px] md:h-[18px]" />
-      <span className="hidden sm:inline">Nhập JSON</span>
-      <span className="sm:hidden">Import</span>
-      <input
-        type="file"
-        accept=".json"
-        onChange={handleImportData}
-        className="hidden"
-      />
-    </label>
-    
-    <button
-      onClick={() => {
-        setCurrentView('home');
-        setIsAdminAuthenticated(false);
-        setAdminPassword('');
-      }}
-      className="flex items-center justify-center gap-1 md:gap-2 bg-gray-200 px-2 md:px-4 py-2 rounded-lg hover:bg-gray-300 text-xs md:text-sm"
-    >
-      <Home size={16} className="md:w-[18px] md:h-[18px]" />
-      <span className="hidden sm:inline">Trang chủ</span>
-      <span className="sm:hidden">Home</span>
-    </button>
-    
-    <button
-      onClick={async () => {
-        const roomsRef = ref(database, 'rooms');
-        const snapshot = await get(roomsRef);
-        const data = snapshot.val();
-        if (data && Array.isArray(data)) {
-          const converted = convertFromFirebase(data);
-          setRooms(converted);
-          alert('Đã tải lại dữ liệu từ Firebase!');
-        }
-      }}
-      className="flex items-center justify-center gap-1 md:gap-2 bg-orange-600 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-orange-700 text-xs md:text-sm"
-    >
-      🔄
-      <span className="hidden sm:inline">Tải lại</span>
-      <span className="sm:hidden">Reload</span>
-    </button>
-    
-<button
-  onClick={async () => {
-    // ✅ Xác nhận trước khi đăng xuất
-    const confirmLogout = window.confirm('Bạn có chắc chắn muốn đăng xuất?');
-    if (!confirmLogout) return;
-    
-    try {
-      // ✅ BƯỚC 1: Xóa admin session trên Firebase
-      const mySessionId = sessionStorage.getItem('adminSessionId');
-      const sessionRef = ref(database, 'adminSession');
-      const snapshot = await get(sessionRef);
-      const currentSession = snapshot.val();
+  {/* ✅ GOM NHÓM CÁC BUTTON VÀO DROPDOWN TRÊN MOBILE */}
+  <div className="mb-4">
+    {/* Desktop: Hiển thị đầy đủ các button */}
+    <div className="hidden md:grid md:grid-cols-3 lg:flex lg:flex-wrap gap-2">
+      <button
+        onClick={handleDownloadTemplate}
+        className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm"
+        title="Tải Template Excel"
+      >
+        <Download size={18} />
+        Template
+      </button>
       
-      // Chỉ xóa nếu đúng session của mình
-      if (currentSession && currentSession.sessionId === mySessionId) {
-        await set(sessionRef, null);
-        console.log('🗑️ Deleted session from Firebase');
-      }
+      <button
+        onClick={handleExportAllRoomsToExcel}
+        className="flex items-center justify-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm"
+        title="Xuất tất cả Rooms"
+      >
+        <FileJson size={18} />
+        Xuất Excel
+      </button>
       
-      // ✅ BƯỚC 2: Xóa heartbeat interval
-      const heartbeatInterval = sessionStorage.getItem('heartbeatInterval');
-      if (heartbeatInterval) {
-        clearInterval(parseInt(heartbeatInterval));
-        sessionStorage.removeItem('heartbeatInterval');
-        console.log('⏹️ Stopped heartbeat');
-      }
+      <button
+        onClick={handleExportData}
+        className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm"
+        title="Xuất dữ liệu JSON"
+      >
+        <Download size={18} />
+        Xuất JSON
+      </button>
       
-      // ✅ BƯỚC 3: Xóa session ID local
-      sessionStorage.removeItem('adminSessionId');
+      <label className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 cursor-pointer text-sm">
+        <Upload size={18} />
+        Nhập JSON
+        <input
+          type="file"
+          accept=".json"
+          onChange={handleImportData}
+          className="hidden"
+        />
+      </label>
       
-      // ✅ BƯỚC 4: Reset state trước khi đăng xuất Firebase
-      setIsAdminAuthenticated(false);
-      setAdminPassword('');
+      <button
+        onClick={() => {
+          setCurrentView('home');
+          setIsAdminAuthenticated(false);
+          setAdminPassword('');
+        }}
+        className="flex items-center justify-center gap-2 bg-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm"
+      >
+        <Home size={18} />
+        Trang chủ
+      </button>
       
-      // ✅ BƯỚC 5: Đăng xuất Firebase
-      await signOut(auth);
+      <button
+        onClick={async () => {
+          const roomsRef = ref(database, 'rooms');
+          const snapshot = await get(roomsRef);
+          const data = snapshot.val();
+          if (data && Array.isArray(data)) {
+            const converted = convertFromFirebase(data);
+            setRooms(converted);
+            alert('Đã tải lại dữ liệu từ Firebase!');
+          }
+        }}
+        className="flex items-center justify-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 text-sm"
+      >
+        🔄
+        Tải lại
+      </button>
       
-      // ✅ BƯỚC 6: Chuyển về trang chủ
-      setCurrentView('home');
-      
-      alert('✅ Đã đăng xuất thành công!');
-    } catch (error) {
-      console.error('Logout error:', error);
-      
-      // ✅ Xử lý lỗi permission denied
-      if (error.code === 'PERMISSION_DENIED' || error.message.includes('Permission denied')) {
-        // Vẫn đăng xuất local ngay cả khi không xóa được session trên Firebase
-        const heartbeatInterval = sessionStorage.getItem('heartbeatInterval');
-        if (heartbeatInterval) {
-          clearInterval(parseInt(heartbeatInterval));
-          sessionStorage.removeItem('heartbeatInterval');
-        }
-        sessionStorage.removeItem('adminSessionId');
-        
-        setIsAdminAuthenticated(false);
-        setAdminPassword('');
-        setCurrentView('home');
-        
-        // Cố gắng đăng xuất Firebase
-        try {
-          await signOut(auth);
-        } catch (signOutError) {
-          console.error('SignOut error:', signOutError);
-        }
-        
-        alert('⚠️ Đã đăng xuất thành công!\n\n(Không thể xóa session trên server, nhưng bạn đã đăng xuất khỏi thiết bị này)');
-      } else {
-        alert('Lỗi khi đăng xuất: ' + error.message);
-      }
-    }
-  }}
-  className="flex items-center justify-center gap-1 md:gap-2 bg-red-500 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-red-600 text-xs md:text-sm col-span-2 md:col-span-1"
->
-  Đăng xuất
-</button>
+      <button
+        onClick={async () => {
+          const confirmLogout = window.confirm('Bạn có chắc chắn muốn đăng xuất?');
+          if (!confirmLogout) return;
+          
+          try {
+            const mySessionId = sessionStorage.getItem('adminSessionId');
+            const sessionRef = ref(database, 'adminSession');
+            const snapshot = await get(sessionRef);
+            const currentSession = snapshot.val();
+            
+            if (currentSession && currentSession.sessionId === mySessionId) {
+              await set(sessionRef, null);
+              console.log('🗑️ Deleted session from Firebase');
+            }
+            
+            const heartbeatInterval = sessionStorage.getItem('heartbeatInterval');
+            if (heartbeatInterval) {
+              clearInterval(parseInt(heartbeatInterval));
+              sessionStorage.removeItem('heartbeatInterval');
+              console.log('⏹️ Stopped heartbeat');
+            }
+            
+            sessionStorage.removeItem('adminSessionId');
+            setIsAdminAuthenticated(false);
+            setAdminPassword('');
+            await signOut(auth);
+            setCurrentView('home');
+            
+            alert('✅ Đã đăng xuất thành công!');
+          } catch (error) {
+            console.error('Logout error:', error);
+            
+            if (error.code === 'PERMISSION_DENIED' || error.message.includes('Permission denied')) {
+              const heartbeatInterval = sessionStorage.getItem('heartbeatInterval');
+              if (heartbeatInterval) {
+                clearInterval(parseInt(heartbeatInterval));
+                sessionStorage.removeItem('heartbeatInterval');
+              }
+              sessionStorage.removeItem('adminSessionId');
+              
+              setIsAdminAuthenticated(false);
+              setAdminPassword('');
+              setCurrentView('home');
+              
+              try {
+                await signOut(auth);
+              } catch (signOutError) {
+                console.error('SignOut error:', signOutError);
+              }
+              
+              alert('⚠️ Đã đăng xuất thành công!\n\n(Không thể xóa session trên server, nhưng bạn đã đăng xuất khỏi thiết bị này)');
+            } else {
+              alert('Lỗi khi đăng xuất: ' + error.message);
+            }
+          }
+        }}
+        className="flex items-center justify-center gap-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 text-sm"
+      >
+        Đăng xuất
+      </button>
+    </div>
+
+    {/* ✅ MOBILE: Menu dropdown gọn gàng */}
+    <div className="md:hidden">
+      <button
+        onClick={() => setShowAdminMenu(!showAdminMenu)}
+        className="w-full flex items-center justify-between bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold text-sm shadow-md"
+      >
+        <span className="flex items-center gap-2">
+          <Settings size={18} />
+          Công cụ quản lý
+        </span>
+        <span className={`transform transition-transform ${showAdminMenu ? 'rotate-180' : ''}`}>
+          ▼
+        </span>
+      </button>
+
+      {/* Dropdown menu */}
+      {showAdminMenu && (
+        <div className="mt-2 bg-white border rounded-lg shadow-lg overflow-hidden">
+          <button
+            onClick={handleDownloadTemplate}
+            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-sm border-b"
+          >
+            <Download size={18} className="text-indigo-600" />
+            <span>Tải Template Excel</span>
+          </button>
+          
+          <button
+            onClick={handleExportAllRoomsToExcel}
+            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-sm border-b"
+          >
+            <FileJson size={18} className="text-purple-600" />
+            <span>Xuất tất cả Excel</span>
+          </button>
+          
+          <button
+            onClick={handleExportData}
+            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-sm border-b"
+          >
+            <Download size={18} className="text-green-600" />
+            <span>Xuất dữ liệu JSON</span>
+          </button>
+          
+          <label className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-sm border-b cursor-pointer">
+            <Upload size={18} className="text-blue-600" />
+            <span>Nhập dữ liệu JSON</span>
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImportData}
+              className="hidden"
+            />
+          </label>
+          
+          <button
+            onClick={async () => {
+              const roomsRef = ref(database, 'rooms');
+              const snapshot = await get(roomsRef);
+              const data = snapshot.val();
+              if (data && Array.isArray(data)) {
+                const converted = convertFromFirebase(data);
+                setRooms(converted);
+                alert('Đã tải lại dữ liệu từ Firebase!');
+              }
+              setShowAdminMenu(false);
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-sm border-b"
+          >
+            <span className="text-orange-600">🔄</span>
+            <span>Tải lại dữ liệu</span>
+          </button>
+          
+          <button
+            onClick={() => {
+              setCurrentView('home');
+              setIsAdminAuthenticated(false);
+              setAdminPassword('');
+              setShowAdminMenu(false);
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left text-sm border-b"
+          >
+            <Home size={18} className="text-gray-600" />
+            <span>Về trang chủ</span>
+          </button>
+          
+          <button
+            onClick={async () => {
+              const confirmLogout = window.confirm('Bạn có chắc chắn muốn đăng xuất?');
+              if (!confirmLogout) return;
+              
+              try {
+                const mySessionId = sessionStorage.getItem('adminSessionId');
+                const sessionRef = ref(database, 'adminSession');
+                const snapshot = await get(sessionRef);
+                const currentSession = snapshot.val();
+                
+                if (currentSession && currentSession.sessionId === mySessionId) {
+                  await set(sessionRef, null);
+                }
+                
+                const heartbeatInterval = sessionStorage.getItem('heartbeatInterval');
+                if (heartbeatInterval) {
+                  clearInterval(parseInt(heartbeatInterval));
+                  sessionStorage.removeItem('heartbeatInterval');
+                }
+                
+                sessionStorage.removeItem('adminSessionId');
+                setIsAdminAuthenticated(false);
+                setAdminPassword('');
+                await signOut(auth);
+                setCurrentView('home');
+                setShowAdminMenu(false);
+                
+                alert('✅ Đã đăng xuất thành công!');
+              } catch (error) {
+                console.error('Logout error:', error);
+                alert('Lỗi khi đăng xuất: ' + error.message);
+              }
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 text-left text-sm text-red-600 font-semibold"
+          >
+            <span>🚪</span>
+            <span>Đăng xuất</span>
+          </button>
+        </div>
+      )}
+    </div>
   </div>
 </div>
 <div className="space-y-6">
@@ -3679,50 +3790,49 @@ const handleDeleteTransaction = (transaction, room) => {
 
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-blue-600 text-white">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold">Tên thành viên</th>
-                  {dateColumns.map(date => (
-                    <th key={date} className="px-4 py-3 text-center font-semibold">{date}</th>
-                  ))}
-                  <th className="px-4 py-3 text-center font-semibold">Hạn thu KT</th>
-                  <th className="px-4 py-3 text-center font-semibold">Ghi chú</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedMembers.map((member, index) => (
-                  <tr
-                    key={member.id}
-                    className={`border-b hover:bg-blue-50 transition cursor-pointer ${
-                      index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                    }`}
-                    onClick={() => handleMemberClick(member)}
-                  >
-                    <td className="px-4 py-3 text-blue-600 font-medium hover:underline">
-                      {member.name}
-                    </td>
-                      {dateColumns.map(date => {
-                        // ✅ FIX: Hiển thị chính xác điểm theo ngày
-                        const displayPoint = member.points[date] !== undefined 
-                          ? member.points[date] 
-                          : 0;
-                          
-                        return (
-                          <td
-                            key={date}
-                            className={`px-4 py-3 text-center font-semibold ${getPointColor(displayPoint)}`}
-                          >
-                            {displayPoint}
-                          </td>
-                        );
-                      })}
-                                      <td className="px-4 py-3 text-center text-sm">{member.deadline}</td>
-                    <td className="px-4 py-3 text-center text-sm">{member.note}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <table className="w-full">
+  <thead className="bg-blue-600 text-white">
+    <tr>
+      <th className="px-2 md:px-4 py-1.5 md:py-3 text-left font-semibold text-xs md:text-sm">Tên thành viên</th>
+      {dateColumns.map(date => (
+        <th key={date} className="px-1 md:px-4 py-1.5 md:py-3 text-center font-semibold text-xs md:text-sm">{date}</th>
+      ))}
+      <th className="px-2 md:px-4 py-1.5 md:py-3 text-center font-semibold text-xs md:text-sm">Hạn thu KT</th>
+      <th className="px-2 md:px-4 py-1.5 md:py-3 text-center font-semibold text-xs md:text-sm">Ghi chú</th>
+    </tr>
+  </thead>
+  <tbody>
+    {paginatedMembers.map((member, index) => (
+      <tr
+        key={member.id}
+        className={`border-b hover:bg-blue-50 transition cursor-pointer ${
+          index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+        }`}
+        onClick={() => handleMemberClick(member)}
+      >
+        <td className="px-2 md:px-4 py-1.5 md:py-3 text-blue-600 font-medium hover:underline text-xs md:text-base">
+          {member.name}
+        </td>
+        {dateColumns.map(date => {
+          const displayPoint = member.points[date] !== undefined 
+            ? member.points[date] 
+            : 0;
+            
+          return (
+            <td
+              key={date}
+              className={`px-1 md:px-4 py-1.5 md:py-3 text-center font-semibold text-xs md:text-base ${getPointColor(displayPoint)}`}
+            >
+              {displayPoint}
+            </td>
+          );
+        })}
+        <td className="px-2 md:px-4 py-1.5 md:py-3 text-center text-[10px] md:text-sm">{member.deadline}</td>
+        <td className="px-2 md:px-4 py-1.5 md:py-3 text-center text-[10px] md:text-sm">{member.note}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
           </div>
 
           {totalPages > 1 && (
