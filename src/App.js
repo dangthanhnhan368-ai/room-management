@@ -437,10 +437,10 @@ useEffect(() => {
 useEffect(() => {
   const unsubscribe = onAuthStateChanged(auth, (user) => {
     if (user) {
-      console.log('Firebase user logged in:', user.email);
+      //console.log('Firebase user logged in:', user.email);
       setIsFirebaseAuthenticated(true);
     } else {
-      console.log('Firebase user logged out');
+      //console.log('Firebase user logged out');
       setIsFirebaseAuthenticated(false);
     }
   });
