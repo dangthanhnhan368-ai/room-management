@@ -748,12 +748,17 @@ const handleAdminLogin = async () => {
   
   if (inputHash === ADMIN_PASSWORD_HASH) {
     try {
-      // ✅ BƯỚC 1: ĐĂNG NHẬP FIREBASE TRƯỚC (để có quyền truy cập database)
-   // ✅ Giải mã credentials
+      // ✅ Giải mã credentials
       const { email, password } = getAdminCredentials();
       
       // ✅ BƯỚC 1: ĐĂNG NHẬP FIREBASE với credentials đã giải mã
       await signInWithEmailAndPassword(auth, email, password);
+      
+      console.log('✅ Firebase login successful');
+      console.log('👤 YOUR ADMIN UID:', auth.currentUser.uid);
+      console.log('📋 Copy UID này để dùng cho Security Rules');
+      console.log('📧 Admin Email:', auth.currentUser.email);
+      
       // ✅ BƯỚC 2: KIỂM TRA session SAU (khi đã có quyền)
       const sessionCheck = await checkAndSetAdminSession(database);
       
@@ -801,7 +806,7 @@ const handleAdminLogin = async () => {
           setCurrentView('home');
           setIsAdminAuthenticated(false);
         }
-      }, 30000); // ✅ THAY ĐỔI 5: Giảm xuống 30 giây (thay vì 60s)
+      }, 30000);
 
       sessionStorage.setItem('heartbeatInterval', heartbeatInterval);
       
