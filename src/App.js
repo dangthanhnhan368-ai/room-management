@@ -5,6 +5,7 @@ import { database } from './firebase';
 import { ref, set, onValue, get } from 'firebase/database';
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getAdminCredentials } from './utils/credentials';
 const hashPassword = async (password) => {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
@@ -14,7 +15,7 @@ const hashPassword = async (password) => {
 };
 
 // Hash chuẩn của password (tạo sẵn)
-const ADMIN_PASSWORD_HASH = 'aa5ff7ddeca7848ed7eb16270306d14ba2f7b65171ca0e700ec2e2adda115b83';
+const ADMIN_PASSWORD_HASH = 'ce658ae4e00cddab8d2f719b343cb22d714fa673eebe8f867bb4e4da1842d3b2';
 const removeVietnameseTones = (str) => {
   if (!str) return '';
   str = str.toLowerCase();
@@ -748,14 +749,11 @@ const handleAdminLogin = async () => {
   if (inputHash === ADMIN_PASSWORD_HASH) {
     try {
       // ✅ BƯỚC 1: ĐĂNG NHẬP FIREBASE TRƯỚC (để có quyền truy cập database)
-      await signInWithEmailAndPassword(
-        auth, 
-        'dangthanhnhan368@gmail.com', 
-        'Admin@112233'
-      );
+   // ✅ Giải mã credentials
+      const { email, password } = getAdminCredentials();
       
-      console.log('✅ Firebase login successful');
-      
+      // ✅ BƯỚC 1: ĐĂNG NHẬP FIREBASE với credentials đã giải mã
+      await signInWithEmailAndPassword(auth, email, password);
       // ✅ BƯỚC 2: KIỂM TRA session SAU (khi đã có quyền)
       const sessionCheck = await checkAndSetAdminSession(database);
       
