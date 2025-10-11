@@ -754,10 +754,6 @@ const handleAdminLogin = async () => {
       // ✅ BƯỚC 1: ĐĂNG NHẬP FIREBASE với credentials đã giải mã
       await signInWithEmailAndPassword(auth, email, password);
       
-      console.log('✅ Firebase login successful');
-      console.log('👤 YOUR ADMIN UID:', auth.currentUser.uid);
-      console.log('📋 Copy UID này để dùng cho Security Rules');
-      console.log('📧 Admin Email:', auth.currentUser.email);
       
       // ✅ BƯỚC 2: KIỂM TRA session SAU (khi đã có quyền)
       const sessionCheck = await checkAndSetAdminSession(database);
