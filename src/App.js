@@ -509,18 +509,11 @@ useEffect(() => {
     const mySessionId = sessionStorage.getItem('adminSessionId');
     
     if (mySessionId && isAdminAuthenticated) {
-      // ✅ Dùng sendBeacon để gửi request ngay cả khi tab đóng
+      // ✅ Dùng Firebase SDK thay vì fetch() để tránh lỗi permission
       const sessionRef = ref(database, 'adminSession');
-      const sessionPath = sessionRef.toString();
       
-      // Clear session bằng fetch với keepalive
-      fetch(sessionPath + '.json', {
-        method: 'DELETE',
-        keepalive: true, // ✅ Đảm bảo request hoàn thành kể cả khi tab đóng
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }).catch(err => console.error('Cleanup error:', err));
+      // Clear session bằng Firebase set(null)
+      set(sessionRef, null).catch(err => console.error('Cleanup error:', err));
       
       // Clear local data
       sessionStorage.removeItem('adminSessionId');
@@ -2162,15 +2155,45 @@ const handleDeleteTransaction = (transaction, room) => {
       // ✅ BƯỚC 3: Xóa session ID local
       sessionStorage.removeItem('adminSessionId');
       
-      // ✅ BƯỚC 4: Đăng xuất Firebase
-      await signOut(auth);
-      setCurrentView('home');
+      // ✅ BƯỚC 4: Reset state trước khi đăng xuất Firebase
       setIsAdminAuthenticated(false);
       setAdminPassword('');
+      
+      // ✅ BƯỚC 5: Đăng xuất Firebase
+      await signOut(auth);
+      
+      // ✅ BƯỚC 6: Chuyển về trang chủ
+      setCurrentView('home');
+      
       alert('✅ Đã đăng xuất thành công!');
     } catch (error) {
       console.error('Logout error:', error);
-      alert('Lỗi khi đăng xuất: ' + error.message);
+      
+      // ✅ Xử lý lỗi permission denied
+      if (error.code === 'PERMISSION_DENIED' || error.message.includes('Permission denied')) {
+        // Vẫn đăng xuất local ngay cả khi không xóa được session trên Firebase
+        const heartbeatInterval = sessionStorage.getItem('heartbeatInterval');
+        if (heartbeatInterval) {
+          clearInterval(parseInt(heartbeatInterval));
+          sessionStorage.removeItem('heartbeatInterval');
+        }
+        sessionStorage.removeItem('adminSessionId');
+        
+        setIsAdminAuthenticated(false);
+        setAdminPassword('');
+        setCurrentView('home');
+        
+        // Cố gắng đăng xuất Firebase
+        try {
+          await signOut(auth);
+        } catch (signOutError) {
+          console.error('SignOut error:', signOutError);
+        }
+        
+        alert('⚠️ Đã đăng xuất thành công!\n\n(Không thể xóa session trên server, nhưng bạn đã đăng xuất khỏi thiết bị này)');
+      } else {
+        alert('Lỗi khi đăng xuất: ' + error.message);
+      }
     }
   }}
   className="flex items-center justify-center gap-1 md:gap-2 bg-red-500 text-white px-2 md:px-4 py-2 rounded-lg hover:bg-red-600 text-xs md:text-sm col-span-2 md:col-span-1"
