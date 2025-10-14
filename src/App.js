@@ -3829,10 +3829,20 @@ const handleDeleteTransaction = (transaction, room) => {
         <td className="px-2 md:px-4 py-1.5 md:py-3 text-blue-600 font-medium hover:underline text-xs md:text-base">
           {member.name}
         </td>
-        {dateColumns.map(date => {
-          const displayPoint = member.points[date] !== undefined 
-            ? member.points[date] 
-            : 0;
+        {dateColumns.map((date, index) => {
+          // ✅ FIX: Với cột ngày mới nhất (index 2), ưu tiên hiển thị totalPoints
+          let displayPoint;
+          if (index === 2) {
+            // Cột ngày hôm nay: hiển thị totalPoints (điểm tích lũy hiện tại)
+            displayPoint = member.totalPoints !== undefined 
+              ? member.totalPoints 
+              : (member.points[date] !== undefined ? member.points[date] : 0);
+          } else {
+            // 2 cột ngày cũ: hiển thị theo ngày
+            displayPoint = member.points[date] !== undefined 
+              ? member.points[date] 
+              : 0;
+          }
             
           return (
             <td
