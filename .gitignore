@@ -8,3 +8,7 @@ src/firebase.js
 
 # Dependencies
 node_modules/
+
+# Credentials
+src/utils/credentials.js
+.env

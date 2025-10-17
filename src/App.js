@@ -315,6 +315,7 @@ const RoomManagementSystem = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [adminRoomSearchTerms, setAdminRoomSearchTerms] = useState({});
   const [transactionForm, setTransactionForm] = useState({
     roomId: null,
     date: new Date().toISOString().split('T')[0],
@@ -2483,108 +2484,180 @@ const handleDeleteTransaction = (transaction, room) => {
                       </span></p>
                     </div>
                     
-                 {room.members.length > 0 && (
+{room.members.length > 0 && (
   <div className="mt-3 border-t pt-3">
-    {/* Title */}
+    {/* ========================================= */}
+    {/* 🆕 PHẦN MỚI: Ô TÌM KIẾM                */}
+    {/* ========================================= */}
+    <div className="mb-3">
+      <div className="relative">
+        {/* Icon kính lúp bên trái */}
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+        
+        {/* Ô nhập tìm kiếm */}
+        <input
+          type="text"
+          placeholder="Tìm kiếm thành viên trong room này..."
+          value={adminRoomSearchTerms[room.id] || ''}
+          onChange={(e) => {
+            setAdminRoomSearchTerms({
+              ...adminRoomSearchTerms,
+              [room.id]: e.target.value
+            });
+          }}
+          className="w-full pl-10 pr-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        
+        {/* Nút X để xóa tìm kiếm */}
+        {adminRoomSearchTerms[room.id] && (
+          <button
+            onClick={() => {
+              setAdminRoomSearchTerms({
+                ...adminRoomSearchTerms,
+                [room.id]: ''
+              });
+            }}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    </div>
+
+    {/* ========================================= */}
+    {/* 🆕 PHẦN MỚI: Tiêu đề với số kết quả      */}
+    {/* ========================================= */}
     <p className="text-xs font-semibold text-gray-700 mb-2">
-      Danh sách thành viên ({room.members.length}):
+      Danh sách thành viên 
+      {adminRoomSearchTerms[room.id] ? (
+        <span>
+          {' '}({filterMembers(room.members, adminRoomSearchTerms[room.id]).length} / {room.members.length} kết quả)
+        </span>
+      ) : (
+        <span> ({room.members.length})</span>
+      )}
     </p>
     
-    {/* Container danh sách - có scroll */}
+    {/* ========================================= */}
+    {/* Container danh sách - có scroll          */}
+    {/* ========================================= */}
     <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg bg-gray-50 p-2">
-      {room.members.map(member => (
-        <div 
-          key={member.id} 
-          className="bg-white rounded-lg hover:bg-blue-50 transition"
-        >
-          {/* DESKTOP: Hiển thị ngang */}
-          <div className="hidden sm:flex items-center justify-between text-xs p-2">
-            {/* Thông tin thành viên */}
-            <div className="flex-1">
-              <span className="font-medium">{member.name}</span>
-              <span className="text-gray-500 ml-2">(ID: {member.id})</span>
-              <span className={`ml-2 font-semibold ${
-                (member.totalPoints || member.points[dateColumns[2]] || 0) > 0 ? 'text-green-600' : 
-                (member.totalPoints || member.points[dateColumns[2]] || 0) < 0 ? 'text-red-600' : 'text-gray-600'
-              }`}>
-                {member.totalPoints || member.points[dateColumns[2]] || 0} điểm
-              </span>
+      {(() => {
+        // 🆕 Lọc danh sách thành viên theo từ khóa tìm kiếm
+        const filteredMembers = filterMembers(
+          room.members, 
+          adminRoomSearchTerms[room.id] || ''
+        );
+        
+        // 🆕 Nếu không tìm thấy ai
+        if (filteredMembers.length === 0) {
+          return (
+            <div className="text-center py-4 text-gray-500 text-sm">
+              Không tìm thấy thành viên phù hợp
             </div>
-            
-            {/* Các nút chức năng */}
-            <div className="flex gap-1">
-              <button
-                onClick={() => setShowMemberHistory({ member, room })}
-                className="text-blue-600 hover:bg-blue-100 p-1.5 rounded"
-                title="Xem lịch sử"
-              >
-                <Edit2 size={14} />
-              </button>
-              <button
-                onClick={() => handleEditMember(member, room.id)}
-                className="text-yellow-600 hover:bg-yellow-100 p-1.5 rounded"
-                title="Sửa thông tin"
-              >
-                <Settings size={14} />
-              </button>
-              <button
-                onClick={() => handleDeleteMember(member.id, room.id)}
-                className="text-red-600 hover:bg-red-100 p-1.5 rounded"
-                title="Xóa"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          </div>
-          
-          {/* MOBILE: Hiển thị dọc */}
-          <div className="sm:hidden p-3">
-            {/* Dòng 1: Tên và ID */}
-            <div className="flex items-start justify-between mb-2">
+          );
+        }
+        
+        // 🆕 Hiển thị danh sách đã lọc
+        return filteredMembers.map(member => (
+          <div 
+            key={member.id} 
+            className="bg-white rounded-lg hover:bg-blue-50 transition"
+          >
+            {/* ========================================= */}
+            {/* DESKTOP: Hiển thị ngang                  */}
+            {/* ========================================= */}
+            <div className="hidden sm:flex items-center justify-between text-xs p-2">
+              {/* Thông tin thành viên */}
               <div className="flex-1">
-                <div className="font-medium text-sm">{member.name}</div>
-                <div className="text-gray-500 text-xs mt-0.5">ID: {member.id}</div>
+                <span className="font-medium">{member.name}</span>
+                <span className="text-gray-500 ml-2">(ID: {member.id})</span>
+                <span className={`ml-2 font-semibold ${
+                  (member.totalPoints || member.points[dateColumns[2]] || 0) > 0 ? 'text-green-600' : 
+                  (member.totalPoints || member.points[dateColumns[2]] || 0) < 0 ? 'text-red-600' : 'text-gray-600'
+                }`}>
+                  {member.totalPoints || member.points[dateColumns[2]] || 0} điểm
+                </span>
               </div>
               
-              {/* Điểm - nổi bật */}
-              <div className={`text-right font-bold text-base ${
-                (member.totalPoints || member.points[dateColumns[2]] || 0) > 0 ? 'text-green-600' : 
-                (member.totalPoints || member.points[dateColumns[2]] || 0) < 0 ? 'text-red-600' : 'text-gray-600'
-              }`}>
-                {member.totalPoints || member.points[dateColumns[2]] || 0}
-                <div className="text-xs font-normal text-gray-500">điểm</div>
+              {/* Các nút chức năng */}
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setShowMemberHistory({ member, room })}
+                  className="text-blue-600 hover:bg-blue-100 p-1.5 rounded"
+                  title="Xem lịch sử"
+                >
+                  <Edit2 size={14} />
+                </button>
+                <button
+                  onClick={() => handleEditMember(member, room.id)}
+                  className="text-yellow-600 hover:bg-yellow-100 p-1.5 rounded"
+                  title="Sửa thông tin"
+                >
+                  <Settings size={14} />
+                </button>
+                <button
+                  onClick={() => handleDeleteMember(member.id, room.id)}
+                  className="text-red-600 hover:bg-red-100 p-1.5 rounded"
+                  title="Xóa"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             </div>
             
-            {/* Dòng 2: Các nút chức năng - FULL WIDTH */}
-            <div className="grid grid-cols-3 gap-1.5 mt-2">
-              <button
-                onClick={() => setShowMemberHistory({ member, room })}
-                className="flex flex-col items-center justify-center bg-blue-50 text-blue-600 py-2 rounded text-xs hover:bg-blue-100"
-              >
-                <Edit2 size={16} />
-                <span className="mt-1">Lịch sử</span>
-              </button>
+            {/* ========================================= */}
+            {/* MOBILE: Hiển thị dọc                     */}
+            {/* ========================================= */}
+            <div className="sm:hidden p-3">
+              {/* Dòng 1: Tên và ID */}
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
+                  <div className="font-medium text-sm">{member.name}</div>
+                  <div className="text-gray-500 text-xs mt-0.5">ID: {member.id}</div>
+                </div>
+                
+                {/* Điểm - nổi bật */}
+                <div className={`text-right font-bold text-base ${
+                  (member.totalPoints || member.points[dateColumns[2]] || 0) > 0 ? 'text-green-600' : 
+                  (member.totalPoints || member.points[dateColumns[2]] || 0) < 0 ? 'text-red-600' : 'text-gray-600'
+                }`}>
+                  {member.totalPoints || member.points[dateColumns[2]] || 0}
+                  <div className="text-xs font-normal text-gray-500">điểm</div>
+                </div>
+              </div>
               
-              <button
-                onClick={() => handleEditMember(member, room.id)}
-                className="flex flex-col items-center justify-center bg-yellow-50 text-yellow-600 py-2 rounded text-xs hover:bg-yellow-100"
-              >
-                <Settings size={16} />
-                <span className="mt-1">Sửa</span>
-              </button>
-              
-              <button
-                onClick={() => handleDeleteMember(member.id, room.id)}
-                className="flex flex-col items-center justify-center bg-red-50 text-red-600 py-2 rounded text-xs hover:bg-red-100"
-              >
-                <Trash2 size={16} />
-                <span className="mt-1">Xóa</span>
-              </button>
+              {/* Dòng 2: Các nút chức năng - FULL WIDTH */}
+              <div className="grid grid-cols-3 gap-1.5 mt-2">
+                <button
+                  onClick={() => setShowMemberHistory({ member, room })}
+                  className="flex flex-col items-center justify-center bg-blue-50 text-blue-600 py-2 rounded text-xs hover:bg-blue-100"
+                >
+                  <Edit2 size={16} />
+                  <span className="mt-1">Lịch sử</span>
+                </button>
+                
+                <button
+                  onClick={() => handleEditMember(member, room.id)}
+                  className="flex flex-col items-center justify-center bg-yellow-50 text-yellow-600 py-2 rounded text-xs hover:bg-yellow-100"
+                >
+                  <Settings size={16} />
+                  <span className="mt-1">Sửa</span>
+                </button>
+                
+                <button
+                  onClick={() => handleDeleteMember(member.id, room.id)}
+                  className="flex flex-col items-center justify-center bg-red-50 text-red-600 py-2 rounded text-xs hover:bg-red-100"
+                >
+                  <Trash2 size={16} />
+                  <span className="mt-1">Xóa</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        ));
+      })()}
     </div>
   </div>
 )}
