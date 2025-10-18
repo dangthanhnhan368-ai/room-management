@@ -4272,13 +4272,22 @@ const handleDeleteTransaction = (transaction, room) => {
                 <tbody>
                   {selectedRoom.transactions[selectedMember.id]?.length > 0 ? (
                   [...selectedRoom.transactions[selectedMember.id]]
+                    .map((trans, originalIndex) => ({ ...trans, originalIndex }))  // ✅ Thêm index gốc
                     .sort((a, b) => {
                       // Chuyển đổi định dạng dd/mm sang yyyy-mm-dd để so sánh
                       const parseDate = (dateStr) => {
                         const [day, month] = dateStr.split('/');
                         return new Date(2024, parseInt(month) - 1, parseInt(day));
                       };
-                      return parseDate(b.date) - parseDate(a.date); // Mới nhất lên trên
+                      
+                      const dateCompare = parseDate(b.date) - parseDate(a.date);
+                      
+                      // ✅ Nếu cùng ngày, giao dịch SAU (index cao) hiển thị TRƯỚC
+                      if (dateCompare === 0) {
+                        return b.originalIndex - a.originalIndex;
+                      }
+                      
+                      return dateCompare;
                     })
                     .map((trans, index) => (
                     <tr key={index} className="border-b hover:bg-gray-50">
@@ -4312,17 +4321,26 @@ const handleDeleteTransaction = (transaction, room) => {
                 </tbody>
               </table>
 
-              {/* Mobile View - Cards */}
+                {/* Mobile View - Cards */}
               <div className="md:hidden space-y-3 p-4">
                 {selectedRoom.transactions[selectedMember.id]?.length > 0 ? (
                   [...selectedRoom.transactions[selectedMember.id]]
+                    .map((trans, originalIndex) => ({ ...trans, originalIndex }))  // ✅ Thêm index gốc
                     .sort((a, b) => {
                       // Chuyển đổi định dạng dd/mm sang yyyy-mm-dd để so sánh
                       const parseDate = (dateStr) => {
                         const [day, month] = dateStr.split('/');
                         return new Date(2024, parseInt(month) - 1, parseInt(day));
                       };
-                      return parseDate(b.date) - parseDate(a.date); // Mới nhất lên trên
+                      
+                      const dateCompare = parseDate(b.date) - parseDate(a.date);
+                      
+                      // ✅ Nếu cùng ngày, giao dịch SAU (index cao) hiển thị TRƯỚC
+                      if (dateCompare === 0) {
+                        return b.originalIndex - a.originalIndex;
+                      }
+                      
+                      return dateCompare;
                     })
                     .map((trans, index) => (
                     <div key={index} className="bg-white border rounded-lg p-4 shadow-sm">
