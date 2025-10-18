@@ -684,17 +684,20 @@ const handlePasswordSubmit = () => {
       }
     }
     
-    return {
-      id: parseInt(row[0]) || 0, // STT
-      name: (row[1] || '').toString().trim(), // Tên
-      points: {
-        [dateColumns[0]]: parseFloat((row[5] || '0').toString().replace(/,/g, '').trim()) || 0,
-        [dateColumns[1]]: parseFloat((row[5] || '0').toString().replace(/,/g, '').trim()) || 0,
-        [dateColumns[2]]: parseFloat((row[5] || '0').toString().replace(/,/g, '').trim()) || 0,
-      },
-      deadline: deadline, // Cột 2: Gia hạn phí - đã xử lý format ngày
-      note: '' // Bỏ qua cột Quỹ (row[3]) - để trống
-    };
+const pointValue = parseFloat((row[5] || '0').toString().replace(/,/g, '').trim()) || 0;
+
+return {
+  id: parseInt(row[0]) || 0,
+  name: (row[1] || '').toString().trim(),
+  points: {
+    [dateColumns[0]]: pointValue,
+    [dateColumns[1]]: pointValue,
+    [dateColumns[2]]: pointValue,
+  },
+  totalPoints: pointValue,  // ✅ THÊM DÒNG NÀY
+  deadline: deadline,
+  note: ''
+};
   });
 
       // Đọc lịch sử giao dịch từ các sheet khác
