@@ -3583,11 +3583,27 @@ const handleDeleteTransaction = (transaction, room) => {
               </tr>
             </thead>
             <tbody>
-              {showMemberHistory.room.transactions[showMemberHistory.member.id]?.length > 0 ? (
-                [...showMemberHistory.room.transactions[showMemberHistory.member.id]]
-                  .reverse()
-                  .map((trans, displayIndex) => {
-                    const actualIndex = showMemberHistory.room.transactions[showMemberHistory.member.id].length - 1 - displayIndex;
+            {showMemberHistory.room.transactions[showMemberHistory.member.id]?.length > 0 ? (
+              [...showMemberHistory.room.transactions[showMemberHistory.member.id]]
+                .map((trans, originalIndex) => ({ ...trans, originalIndex }))  // ✅ Thêm index gốc
+                .sort((a, b) => {
+                  // ✅ Parse ngày
+                  const parseDate = (dateStr) => {
+                    const [day, month] = dateStr.split('/');
+                    return new Date(2025, parseInt(month) - 1, parseInt(day));
+                  };
+                  
+                  const dateCompare = parseDate(b.date) - parseDate(a.date);
+                  
+                  // ✅ Nếu cùng ngày, giao dịch SAU hiển thị TRƯỚC
+                  if (dateCompare === 0) {
+                    return b.originalIndex - a.originalIndex;
+                  }
+                  
+                  return dateCompare;
+                })
+                .map((trans, displayIndex) => {
+                  const actualIndex = trans.originalIndex;  // ✅ Dùng originalIndex thay vì tính toán
                     
                     return editingHistoryTransaction?.index === actualIndex ? (
                       // MODE EDIT
@@ -3837,9 +3853,25 @@ const handleDeleteTransaction = (transaction, room) => {
         <div className="sm:hidden p-3 space-y-3">
           {showMemberHistory.room.transactions[showMemberHistory.member.id]?.length > 0 ? (
             [...showMemberHistory.room.transactions[showMemberHistory.member.id]]
-              .reverse()
+              .map((trans, originalIndex) => ({ ...trans, originalIndex }))  // ✅ Thêm index gốc
+              .sort((a, b) => {
+                // ✅ Parse ngày
+                const parseDate = (dateStr) => {
+                  const [day, month] = dateStr.split('/');
+                  return new Date(2025, parseInt(month) - 1, parseInt(day));
+                };
+                
+                const dateCompare = parseDate(b.date) - parseDate(a.date);
+                
+                // ✅ Nếu cùng ngày, giao dịch SAU hiển thị TRƯỚC
+                if (dateCompare === 0) {
+                  return b.originalIndex - a.originalIndex;
+                }
+                
+                return dateCompare;
+              })
               .map((trans, displayIndex) => {
-                const actualIndex = showMemberHistory.room.transactions[showMemberHistory.member.id].length - 1 - displayIndex;
+                const actualIndex = trans.originalIndex;  // ✅ Dùng originalIndex thay vì tính toán
                 
                 return editingHistoryTransaction?.index === actualIndex ? (
                   // 🆕 MOBILE EDIT MODE
