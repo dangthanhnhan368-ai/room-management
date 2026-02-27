@@ -1954,6 +1954,15 @@ const runMigrationCommit = async () => {
       setMigStatus('error');
     }
   };
+const runMigrationLogin = async () => {
+    try {
+      const { email, password } = getAdminCredentials();
+      await signInWithEmailAndPassword(auth, email, password);
+      setMigLogs(['✅ Đã đăng nhập Firebase! Bây giờ nhấn Xem trước.']);
+    } catch (err) {
+      setMigLogs([`❌ Lỗi đăng nhập: ${err.message}`]);
+    }
+  };
 
   if (migStatus !== 'skip') {
     return (
@@ -1976,6 +1985,13 @@ const runMigrationCommit = async () => {
             </div>
           )}
           <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+
+            {/* ✅ NÚT ĐĂNG NHẬP - THÊM MỚI */}
+            <button onClick={runMigrationLogin}
+              style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: 'pointer', fontWeight: 600 }}>
+              🔐 Đăng nhập Admin
+            </button>
+
             <button onClick={runMigrationPreview}
               disabled={migStatus === 'loading' || migStatus === 'done'}
               style={{ background: '#0284c7', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: 'pointer', fontWeight: 600 }}>
