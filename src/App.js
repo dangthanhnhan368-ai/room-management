@@ -727,7 +727,7 @@ workbook.SheetNames.slice(1).forEach(sheetName => {
         return hasDate && hasDescription && hasPrice;
       })
       .map(row => ({
-        date: row[1] ? (typeof row[1] === 'number' ? XLSX.SSF.format('dd/mm', row[1]) : row[1].toString().trim()) : '',
+        date: row[1] ? (typeof row[1] === 'number' ? XLSX.SSF.format('dd/mm/yyyy', row[1]) : row[1].toString().trim()) : '',
         description: (row[2] || '').toString().trim(),
         price: parseFloat((row[3] || '0').toString().replace(/,/g, '')) || 0,
         role: (row[4] || '').toString().trim(),
@@ -4196,7 +4196,10 @@ const handleDeleteTransaction = (transaction, room) => {
     <tr>
       <th className="px-2 md:px-4 py-1.5 md:py-3 text-left font-semibold text-xs md:text-sm">Tên thành viên</th>
       {dateColumns.map(date => (
-        <th key={date} className="px-1 md:px-4 py-1.5 md:py-3 text-center font-semibold text-xs md:text-sm">{date}</th>
+        <th key={date} className="px-1 md:px-4 py-1.5 md:py-3 text-center font-semibold text-xs md:text-sm">
+          <span className="hidden md:inline">{date}</span>
+          <span className="md:hidden">{date.substring(0, 5)}</span>
+        </th>
       ))}
       <th className="px-2 md:px-4 py-1.5 md:py-3 text-center font-semibold text-xs md:text-sm">Hạn thu KT</th>
       <th className="px-2 md:px-4 py-1.5 md:py-3 text-center font-semibold text-xs md:text-sm">Ghi chú</th>
