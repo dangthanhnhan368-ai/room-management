@@ -567,13 +567,23 @@ const currentDate = new Date().toLocaleDateString('vi-VN', { day: '2-digit', mon
             memberIdStr.includes(searchTerm);
     });
   };
+  const parseTransactionDate = (dateStr) => {
+    if (!dateStr) return new Date(0);
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+    } else if (parts.length === 2) {
+      return new Date(new Date().getFullYear(), parseInt(parts[1]) - 1, parseInt(parts[0]));
+    }
+    return new Date(0);
+  };
   const getDateColumns = () => {
     const today = new Date();
     const dates = [];
     for (let i = 2; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
-      const formatted = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const formatted = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
       dates.push(formatted);
     }
     return dates;
@@ -992,7 +1002,7 @@ const handleAddTransaction = () => {
     }
 
     const dateObj = new Date(date);
-    const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+    const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}/${dateObj.getFullYear()}`;
 
     // XÁC ĐỊNH VAI TRÒ VÀ ĐIỂM
     let delivererRole, receiverRole, delivererPoints, receiverPoints;
@@ -1453,13 +1463,7 @@ const getAllTransactionsFlat = (room) => {
   
   // ✅ Sort theo NGÀY (mới nhất trước), SAU ĐÓ theo TIMESTAMP (mới nhất trước)
   groupedTransactions.sort((a, b) => {
-    // So sánh ngày
-    const parseDate = (dateStr) => {
-      const [day, month] = dateStr.split('/');
-      return new Date(2025, parseInt(month) - 1, parseInt(day));
-    };
-    
-    const dateCompare = parseDate(b.date) - parseDate(a.date);
+    const dateCompare = parseTransactionDate(b.date) - parseTransactionDate(a.date);
     
     // Nếu cùng ngày, so sánh timestamp (index cao hơn = nhập sau = hiển thị trước)
     if (dateCompare === 0) {
@@ -3589,15 +3593,8 @@ const handleDeleteTransaction = (transaction, room) => {
               [...showMemberHistory.room.transactions[showMemberHistory.member.id]]
                 .map((trans, originalIndex) => ({ ...trans, originalIndex }))  // ✅ Thêm index gốc
                 .sort((a, b) => {
-                  // ✅ Parse ngày
-                  const parseDate = (dateStr) => {
-                    const [day, month] = dateStr.split('/');
-                    return new Date(2025, parseInt(month) - 1, parseInt(day));
-                  };
+                  const dateCompare = parseTransactionDate(b.date) - parseTransactionDate(a.date);
                   
-                  const dateCompare = parseDate(b.date) - parseDate(a.date);
-                  
-                  // ✅ Nếu cùng ngày, giao dịch SAU hiển thị TRƯỚC
                   if (dateCompare === 0) {
                     return b.originalIndex - a.originalIndex;
                   }
@@ -3855,17 +3852,10 @@ const handleDeleteTransaction = (transaction, room) => {
         <div className="sm:hidden p-3 space-y-3">
           {showMemberHistory.room.transactions[showMemberHistory.member.id]?.length > 0 ? (
             [...showMemberHistory.room.transactions[showMemberHistory.member.id]]
-              .map((trans, originalIndex) => ({ ...trans, originalIndex }))  // ✅ Thêm index gốc
+              .map((trans, originalIndex) => ({ ...trans, originalIndex }))
               .sort((a, b) => {
-                // ✅ Parse ngày
-                const parseDate = (dateStr) => {
-                  const [day, month] = dateStr.split('/');
-                  return new Date(2025, parseInt(month) - 1, parseInt(day));
-                };
+                const dateCompare = parseTransactionDate(b.date) - parseTransactionDate(a.date);
                 
-                const dateCompare = parseDate(b.date) - parseDate(a.date);
-                
-                // ✅ Nếu cùng ngày, giao dịch SAU hiển thị TRƯỚC
                 if (dateCompare === 0) {
                   return b.originalIndex - a.originalIndex;
                 }
@@ -4308,13 +4298,7 @@ const handleDeleteTransaction = (transaction, room) => {
                   [...selectedRoom.transactions[selectedMember.id]]
                     .map((trans, originalIndex) => ({ ...trans, originalIndex }))  // ✅ Thêm index gốc
                     .sort((a, b) => {
-                      // Chuyển đổi định dạng dd/mm sang yyyy-mm-dd để so sánh
-                      const parseDate = (dateStr) => {
-                        const [day, month] = dateStr.split('/');
-                        return new Date(2024, parseInt(month) - 1, parseInt(day));
-                      };
-                      
-                      const dateCompare = parseDate(b.date) - parseDate(a.date);
+                      const dateCompare = parseTransactionDate(b.date) - parseTransactionDate(a.date);
                       
                       // ✅ Nếu cùng ngày, giao dịch SAU (index cao) hiển thị TRƯỚC
                       if (dateCompare === 0) {
@@ -4359,17 +4343,10 @@ const handleDeleteTransaction = (transaction, room) => {
               <div className="md:hidden space-y-3 p-4">
                 {selectedRoom.transactions[selectedMember.id]?.length > 0 ? (
                   [...selectedRoom.transactions[selectedMember.id]]
-                    .map((trans, originalIndex) => ({ ...trans, originalIndex }))  // ✅ Thêm index gốc
+                    .map((trans, originalIndex) => ({ ...trans, originalIndex }))
                     .sort((a, b) => {
-                      // Chuyển đổi định dạng dd/mm sang yyyy-mm-dd để so sánh
-                      const parseDate = (dateStr) => {
-                        const [day, month] = dateStr.split('/');
-                        return new Date(2024, parseInt(month) - 1, parseInt(day));
-                      };
+                      const dateCompare = parseTransactionDate(b.date) - parseTransactionDate(a.date);
                       
-                      const dateCompare = parseDate(b.date) - parseDate(a.date);
-                      
-                      // ✅ Nếu cùng ngày, giao dịch SAU (index cao) hiển thị TRƯỚC
                       if (dateCompare === 0) {
                         return b.originalIndex - a.originalIndex;
                       }
