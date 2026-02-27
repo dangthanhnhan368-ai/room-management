@@ -6,7 +6,6 @@ import { ref, set, onValue, get } from 'firebase/database';
 import { auth } from './firebase';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getAdminCredentials } from './utils/credentials';
-
 const hashPassword = async (password) => {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
@@ -551,161 +550,6 @@ useEffect(() => {
 
 
 const currentDate = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-// ============================================================
-  // ✅ MIGRATION TOOL - XÓA ĐOẠN NÀY SAU KHI CHẠY XONG
-  // ============================================================
-  const [migStatus, setMigStatus] = useState('idle');
-  const [migLogs, setMigLogs] = useState([]);
-  const [migStats, setMigStats] = useState(null);
-  const [migData, setMigData] = useState(null);
-  const [origData, setOrigData] = useState(null);
-
-  const inferYear = (dateStr) => {
-    const parts = dateStr.split('/');
-    if (parts.length === 3) return dateStr;
-    const monthNum = parseInt(parts[1]);
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
-    const year = monthNum > currentMonth ? currentYear - 1 : currentYear;
-    return `${parts[0]}/${parts[1]}/${year}`;
-  };
-
-  const runMigrationPreview = async () => {
-    setMigStatus('loading');
-    setMigLogs([]);
-    try {
-      const roomsRef = ref(database, 'rooms');
-      const snapshot = await get(roomsRef);
-      const data = snapshot.val();
-      if (!data || !Array.isArray(data)) {
-        setMigLogs(['❌ Không tìm thấy dữ liệu!']);
-        setMigStatus('error');
-        return;
-      }
-      setOrigData(data);
-      const logs = [];
-      let pointsCount = 0;
-      let transCount = 0;
-      const migrated = data.map(room => {
-        if (!room) return room;
-        const newMembers = (room.members || []).map(member => {
-          if (!member?.points) return member;
-          const newPoints = {};
-          Object.entries(member.points).forEach(([key, value]) => {
-            if (key.split('/').length === 2) {
-              const newKey = inferYear(key);
-              newPoints[newKey] = value;
-              pointsCount++;
-              logs.push(`[Points] ${member.name}: "${key}" → "${newKey}"`);
-            } else {
-              newPoints[key] = value;
-            }
-          });
-          return { ...member, points: newPoints };
-        });
-        const newTrans = {};
-        Object.entries(room.transactions || {}).forEach(([id, list]) => {
-          newTrans[id] = (list || []).map(t => {
-            if (!t?.date || t.date.split('/').length !== 2) return t;
-            const newDate = inferYear(t.date);
-            transCount++;
-            logs.push(`[Trans] ${room.name}/ID${id}: "${t.date}" → "${newDate}"`);
-            return { ...t, date: newDate };
-          });
-        });
-        return { ...room, members: newMembers, transactions: newTrans };
-      });
-      setMigData(migrated);
-      setMigLogs(logs);
-      setMigStats({ rooms: data.length, pointsCount, transCount });
-      setMigStatus('preview');
-    } catch (err) {
-      setMigLogs([`❌ Lỗi: ${err.message}`]);
-      setMigStatus('error');
-    }
-  };
-
-  const runMigrationCommit = async () => {
-    if (!migData) return;
-    setMigStatus('loading');
-    try {
-      await set(ref(database, `migration_backup_${Date.now()}`), origData);
-      await set(ref(database, 'rooms'), migData);
-      await set(ref(database, 'migrationFlags/dateFormatV2'), {
-        migratedAt: new Date().toISOString(),
-        stats: migStats,
-      });
-      setMigLogs(prev => ['✅ Migration hoàn tất! Hãy xóa đoạn migration trong App.js', ...prev]);
-      setMigStatus('done');
-    } catch (err) {
-      setMigLogs(prev => [`❌ Lỗi ghi Firebase: ${err.message}`, ...prev]);
-      setMigStatus('error');
-    }
-  };
-
-  if (migStatus !== 'skip') {
-    return (
-      <div style={{ maxWidth: 800, margin: '40px auto', padding: 24, fontFamily: 'monospace' }}>
-        <div style={{ background: '#1e293b', color: '#f8fafc', borderRadius: 12, padding: 24 }}>
-          <h2 style={{ color: '#38bdf8', marginTop: 0 }}>🔧 Migration Tool — Date Format v2</h2>
-          <p style={{ color: '#94a3b8', fontSize: 14 }}>Convert ngày từ dd/mm → dd/mm/yyyy</p>
-          {migStats && (
-            <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-              {[
-                { label: 'Rooms', value: migStats.rooms, color: '#818cf8' },
-                { label: 'Points keys', value: migStats.pointsCount, color: '#f59e0b' },
-                { label: 'Trans dates', value: migStats.transCount, color: '#f59e0b' },
-              ].map(s => (
-                <div key={s.label} style={{ background: '#0f172a', borderRadius: 8, padding: '10px 16px', flex: 1, textAlign: 'center' }}>
-                  <div style={{ color: s.color, fontSize: 24, fontWeight: 700 }}>{s.value}</div>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-          )}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-            <button onClick={runMigrationPreview}
-              disabled={migStatus === 'loading' || migStatus === 'done'}
-              style={{ background: '#0284c7', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: 'pointer', fontWeight: 600 }}>
-              {migStatus === 'loading' ? '⏳ Đang xử lý...' : '🔍 Xem trước (Preview)'}
-            </button>
-            {migStatus === 'preview' && migStats && (migStats.pointsCount > 0 || migStats.transCount > 0) && (
-              <button onClick={runMigrationCommit}
-                style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: 'pointer', fontWeight: 600 }}>
-                ✅ Xác nhận & Ghi Firebase
-              </button>
-            )}
-            <button onClick={() => setMigStatus('skip')}
-              style={{ background: '#475569', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: 'pointer', fontWeight: 600 }}>
-              ⏭️ Bỏ qua (Skip)
-            </button>
-          </div>
-          {migStatus === 'preview' && migStats?.pointsCount === 0 && migStats?.transCount === 0 && (
-            <div style={{ background: '#166534', color: '#bbf7d0', borderRadius: 8, padding: 12, marginBottom: 16 }}>
-              ✅ Dữ liệu đã ở định dạng mới, không cần migrate!
-            </div>
-          )}
-          {migStatus === 'done' && (
-            <div style={{ background: '#166534', color: '#bbf7d0', borderRadius: 8, padding: 12, marginBottom: 16 }}>
-              🎉 Xong! Hãy xóa đoạn migration (từ "MIGRATION TOOL" đến "END MIGRATION") trong App.js rồi reload.
-            </div>
-          )}
-          {migLogs.length > 0 && (
-            <div style={{ background: '#0f172a', borderRadius: 8, padding: 16, maxHeight: 350, overflowY: 'auto', fontSize: 12, lineHeight: 1.8 }}>
-              {migLogs.map((log, i) => (
-                <div key={i} style={{ color: log.startsWith('✅') ? '#4ade80' : log.startsWith('❌') ? '#f87171' : '#94a3b8' }}>
-                  {log}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-  // ============================================================
-  // ✅ END MIGRATION - XÓA ĐẾN ĐÂY
-  // ============================================================
 
   // Hàm lọc thành viên theo tên
 
@@ -736,7 +580,7 @@ const currentDate = new Date().toLocaleDateString('vi-VN', { day: '2-digit', mon
   };
 
   const dateColumns = getDateColumns();
- 
+
  // ✅ FILTERED MEMBERS - CẢI TIẾN VỚI TÌM KIẾM KHÔNG DẤU
   const filteredMembers = useMemo(() => {
     if (!selectedRoom) return [];
