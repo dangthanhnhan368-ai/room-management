@@ -1942,16 +1942,11 @@ const handleDeleteTransaction = (transaction, room) => {
     }
   };
 
-  const runMigrationCommit = async () => {
+const runMigrationCommit = async () => {
     if (!migData) return;
     setMigStatus('loading');
     try {
-      await set(ref(database, `migration_backup_${Date.now()}`), origData);
       await set(ref(database, 'rooms'), migData);
-      await set(ref(database, 'migrationFlags/dateFormatV2'), {
-        migratedAt: new Date().toISOString(),
-        stats: migStats,
-      });
       setMigLogs(prev => ['✅ Migration hoàn tất! Hãy xóa đoạn migration trong App.js', ...prev]);
       setMigStatus('done');
     } catch (err) {
