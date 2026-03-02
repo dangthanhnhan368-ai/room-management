@@ -291,16 +291,6 @@ const initialRooms = [
 ];
 
 const RoomManagementSystem = () => {
-  useEffect(() => {
-    const resetKey = 'migration_reset_v2';
-    if (!localStorage.getItem(resetKey)) {
-      console.log('🔄 Resetting migration data...');
-      localStorage.removeItem('lastMigrationDate');
-      localStorage.setItem(resetKey, 'true');
-      console.log('✅ Migration reset complete');
-    }
-  }, []);
-
   const [currentView, setCurrentView] = useState('home');
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [rooms, setRooms] = useState([]);
@@ -933,7 +923,7 @@ useEffect(() => {
       localStorage.setItem('lastMigrationDate', today);
     }
   }
-}, [rooms.length, isLoadingFromFirebase]);
+}, [isLoadingFromFirebase]);
 
 const handleAddTransaction = () => {
     const { roomId, date, delivererId, receiverId, price, description, manualPoints, isAddPointTransaction, isFreeTransaction } = transactionForm;
@@ -990,19 +980,22 @@ const handleAddTransaction = () => {
       });
       
     } else {
-      points = calculatePoints(priceNum, room.rule);
-      
-      if (points === null) {
-        if (!manualPoints) {
-          alert('Giá trị vượt quy tắc! Vui lòng nhập điểm thủ công.');
-          return;
-        }
+      // Nếu có nhập thủ công → ưu tiên dùng thủ công
+      if (manualPoints) {
         const rawPoints = parseFloat(manualPoints);
         if (isNaN(rawPoints) || rawPoints <= 0) {
           alert('Điểm thủ công không hợp lệ!');
           return;
         }
         points = parseFloat(rawPoints.toFixed(1));
+      } else {
+        // Không có thủ công → dùng quy tắc tự động
+        points = calculatePoints(priceNum, room.rule);
+        
+        if (points === null) {
+          alert('Giá trị vượt quy tắc! Vui lòng nhập điểm thủ công.');
+          return;
+        }
       }
     }
 
@@ -1161,69 +1154,55 @@ const handleAddTransaction = () => {
     alert(successMsg);
 };
   const handleAddMember = () => {
-      const { roomId, id, name, deadline, note, initialPoints } = memberForm;
-      
-      if (!roomId || id === '' || !name) {
-        alert('Vui lòng điền đầy đủ thông tin bắt buộc (Room, ID, Tên)!');
-        return;
+    const { roomId, id, name, deadline, note } = memberForm;
+  
+    if (!roomId || id === '' || !name) {
+    alert('Vui lòng điền đầy đủ thông tin bắt buộc (Room, ID, Tên)!');
+    return;
+    }
+
+    const memberId = parseInt(id);
+    if (isNaN(memberId)) {
+    alert('ID phải là số!');
+    return;
+    }
+
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return;
+
+    if (room.members.some(m => m.id === memberId)) {
+    alert('ID này đã tồn tại trong Room! Vui lòng chọn ID khác.');
+    return;
+    }
+
+    const newMember = {
+    id: memberId,
+    name: name.trim(),
+    points: {
+      [dateColumns[0]]: 0,
+      [dateColumns[1]]: 0,
+      [dateColumns[2]]: 0
+    },
+    totalPoints: 0,
+    deadline: deadline || '',
+    note: note || ''
+    };
+
+    setRooms(rooms.map(r => {
+    if (r.id !== roomId) return r;
+    return {
+      ...r,
+      members: [...r.members, newMember],
+      transactions: {
+        ...r.transactions,
+        [memberId]: []
       }
+    };
+  }));
 
-      const memberId = parseInt(id);
-      if (isNaN(memberId)) {
-        alert('ID phải là số!');
-        return;
-      }
-
-      const points = parseFloat(initialPoints);
-      if (isNaN(points)) {
-        alert('Điểm khởi đầu không hợp lệ!');
-        return;
-      }
-
-      const room = rooms.find(r => r.id === roomId);
-      if (!room) return;
-
-      if (room.members.some(m => m.id === memberId)) {
-        alert('ID này đã tồn tại trong Room! Vui lòng chọn ID khác.');
-        return;
-      }
-
-        const newMember = {
-          id: memberId,
-          name: name.trim(),
-          points: {
-            [dateColumns[0]]: 0,        // ✅ Ngày cũ nhất = 0 (chưa tồn tại)
-            [dateColumns[1]]: 0,        // ✅ Ngày giữa = 0 (chưa tồn tại)
-            [dateColumns[2]]: points    // ✅ Ngày mới nhất = điểm khởi đầu
-          },
-          totalPoints: points, // ✅ totalPoints = điểm hiện tại
-          deadline: deadline || '',
-          note: note || ''
-      };
-
-      setRooms(rooms.map(r => {
-        if (r.id !== roomId) return r;
-        return {
-          ...r,
-          members: [...r.members, newMember],
-          transactions: {
-            ...r.transactions,
-            [memberId]: []
-          }
-        };
-      }));
-
-      setMemberForm({
-        roomId: null,
-        id: '',
-        name: '',
-        deadline: '',
-        note: '',
-        initialPoints: '0'
-      });
-      setShowMemberForm(false);
-      
-      alert(`Đã thêm thành viên "${name}" với điểm khởi đầu ${points} (chỉ tính cho ngày ${dateColumns[2]})!`);
+  setMemberForm({ roomId: null, id: '', name: '', deadline: '', note: '', initialPoints: '0' });
+  setShowMemberForm(false);
+  alert(`Đã thêm thành viên "${name}" thành công!\n\n💡 Dùng "Giao dịch cộng điểm" (Admin → ${name}) để cấp điểm ban đầu.`);
   };
 
   const handleCreateRoom = () => {
@@ -1316,65 +1295,48 @@ const handleAddTransaction = () => {
   };
 
   const handleEditMember = (member, roomId) => {
-    setEditingMember({ ...member, roomId });
-    setMemberForm({
-      roomId: roomId,
-      id: member.id.toString(),
-      name: member.name,
-      deadline: member.deadline,
-      note: member.note,
-      initialPoints: member.points[dateColumns[2]].toString()
-    });
-    setShowMemberForm(true);
+  setEditingMember({ ...member, roomId });
+  setMemberForm({
+    roomId: roomId,
+    id: member.id.toString(),
+    name: member.name,
+    deadline: member.deadline,
+    note: member.note,
+    initialPoints: '0' // không dùng nhưng giữ để tránh lỗi
+  });
+  setShowMemberForm(true);
   };
 
   const handleUpdateMember = () => {
-    const { roomId, id, name, deadline, note, initialPoints } = memberForm;
-    
-    if (!name) {
-      alert('Vui lòng nhập tên thành viên!');
-      return;
-    }
+  const { roomId, name, deadline, note } = memberForm;
+  
+  if (!name) {
+    alert('Vui lòng nhập tên thành viên!');
+    return;
+  }
 
-    const points = parseFloat(initialPoints);
-    if (isNaN(points)) {
-      alert('Điểm không hợp lệ!');
-      return;
-    }
+  setRooms(rooms.map(r => {
+    if (r.id !== roomId) return r;
+    return {
+      ...r,
+      members: r.members.map(m => 
+        m.id === editingMember.id
+          ? {
+              ...m,
+              name: name.trim(),
+              // ✅ Không chạm vào points/totalPoints
+              deadline: deadline || '',
+              note: note || ''
+            }
+          : m
+      )
+    };
+  }));
 
-    setRooms(rooms.map(r => {
-      if (r.id !== roomId) return r;
-      return {
-        ...r,
-        members: r.members.map(m => 
-          m.id === editingMember.id
-            ? {
-                ...m,
-                name: name.trim(),
-                points: {
-                  ...m.points,
-                  [dateColumns[2]]: points
-                },
-                deadline: deadline || '',
-                note: note || ''
-              }
-            : m
-        )
-      };
-    }));
-
-    setMemberForm({
-      roomId: null,
-      id: '',
-      name: '',
-      deadline: '',
-      note: '',
-      initialPoints: '0'
-    });
-    setShowMemberForm(false);
-    setEditingMember(null);
-    
-    alert(`Đã cập nhật thành viên "${name}" thành công!`);
+  setMemberForm({ roomId: null, id: '', name: '', deadline: '', note: '', initialPoints: '0' });
+  setShowMemberForm(false);
+  setEditingMember(null);
+  alert(`Đã cập nhật thông tin thành viên "${name}" thành công!`);
   };
 
   const handleDeleteMember = (memberId, roomId) => {
@@ -2990,14 +2952,36 @@ const handleDeleteTransaction = (transaction, room) => {
                   )}
                 </div>
 
-                {transactionForm.price && transactionForm.roomId && (
-                  transactionForm.isAddPointTransaction ||
-                  calculatePoints(parseFloat(transactionForm.price), rooms.find(r => r.id === transactionForm.roomId)?.rule) === null
-                ) && !transactionForm.isFreeTransaction && (
-                  <div className="bg-orange-50 border-2 border-orange-300 rounded-lg p-4">
-                    <label className="block text-sm font-semibold text-orange-900 mb-2">
-                      Điểm thủ công <span className="text-red-500">*</span>
-                    </label>
+                {!transactionForm.isFreeTransaction && (
+                  <div className={`border-2 rounded-lg p-4 ${
+                    transactionForm.isAddPointTransaction
+                      ? 'bg-purple-50 border-purple-300'
+                      : transactionForm.price && transactionForm.roomId &&
+                        calculatePoints(parseFloat(transactionForm.price), rooms.find(r => r.id === transactionForm.roomId)?.rule) === null
+                      ? 'bg-orange-50 border-orange-300'
+                      : 'bg-gray-50 border-gray-200'
+                  }`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-semibold text-gray-800">
+                        Điểm thủ công
+                        {(transactionForm.isAddPointTransaction ||
+                          (transactionForm.price && transactionForm.roomId &&
+                          calculatePoints(parseFloat(transactionForm.price), rooms.find(r => r.id === transactionForm.roomId)?.rule) === null))
+                          ? <span className="text-red-500 ml-1">*</span>
+                          : <span className="text-gray-400 text-xs font-normal ml-2">(tùy chọn - để trống để dùng điểm tự động)</span>
+                        }
+                      </label>
+                      {/* Nút xóa điểm thủ công */}
+                      {transactionForm.manualPoints && (
+                        <button
+                          onClick={() => setTransactionForm({ ...transactionForm, manualPoints: '' })}
+                          className="text-xs text-gray-500 hover:text-red-600 underline"
+                        >
+                          ✕ Xóa, dùng tự động
+                        </button>
+                      )}
+                    </div>
+
                     <input
                       type="number"
                       step="0.1"
@@ -3005,18 +2989,44 @@ const handleDeleteTransaction = (transaction, room) => {
                       onChange={(e) =>
                         setTransactionForm({ ...transactionForm, manualPoints: e.target.value })
                       }
-                      onWheel={(e) => e.currentTarget.blur()}              // ⬅ chặn lăn chuột khi đang focus
-                      onKeyDown={(e) => {                                  // ⬅ chặn mũi tên ↑/↓
+                      onWheel={(e) => e.currentTarget.blur()}
+                      onKeyDown={(e) => {
                         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
                       }}
-                      inputMode="decimal"                                   // gợi ý bàn phím số trên mobile
-                      className="w-full px-4 py-2 border-2 border-orange-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      inputMode="decimal"
+                      placeholder={
+                        transactionForm.isAddPointTransaction
+                          ? 'Nhập số điểm cộng/trừ...'
+                          : transactionForm.price && transactionForm.roomId
+                          ? (() => {
+                              const auto = calculatePoints(parseFloat(transactionForm.price), rooms.find(r => r.id === transactionForm.roomId)?.rule);
+                              return auto !== null ? `Tự động: ${auto} điểm` : 'Vượt quy tắc, cần nhập thủ công...';
+                            })()
+                          : 'Nhập điểm thủ công (nếu muốn override)...'
+                      }
+                      className={`w-full px-4 py-2 border-2 rounded-lg focus:outline-none focus:ring-2 ${
+                        transactionForm.isAddPointTransaction
+                          ? 'border-purple-300 focus:ring-purple-500'
+                          : transactionForm.price && transactionForm.roomId &&
+                            calculatePoints(parseFloat(transactionForm.price), rooms.find(r => r.id === transactionForm.roomId)?.rule) === null
+                          ? 'border-orange-300 focus:ring-orange-500'
+                          : 'border-gray-300 focus:ring-blue-500'
+                      }`}
                     />
 
-                    <p className="text-xs text-orange-700 mt-2">
-                      {transactionForm.isAddPointTransaction 
-                        ? '💡 Giao dịch cộng điểm: Người giao bị trừ số điểm này, người nhận được cộng số điểm này'
-                        : `💡 Giá trị ${parseFloat(transactionForm.price).toLocaleString('vi-VN')} VND vượt quy tắc tự động. Vui lòng nhập số điểm cho giao dịch này.`
+                    <p className="text-xs text-gray-600 mt-2">
+                      {transactionForm.isAddPointTransaction
+                        ? '💡 Người giao bị TRỪ số điểm này, người nhận được CỘNG số điểm này'
+                        : transactionForm.manualPoints
+                        ? '✏️ Đang dùng điểm thủ công - nhấn "Xóa, dùng tự động" để quay lại điểm theo quy tắc'
+                        : transactionForm.price && transactionForm.roomId
+                        ? (() => {
+                            const auto = calculatePoints(parseFloat(transactionForm.price), rooms.find(r => r.id === transactionForm.roomId)?.rule);
+                            return auto !== null
+                              ? `💡 Để trống = dùng điểm tự động (${auto} điểm). Nhập số để override.`
+                              : `⚠️ Giá trị ${parseFloat(transactionForm.price || 0).toLocaleString('vi-VN')} VND vượt quy tắc, cần nhập thủ công.`;
+                          })()
+                        : '💡 Nhập số điểm để override quy tắc tự động của Room'
                       }
                     </p>
                   </div>
@@ -3134,22 +3144,17 @@ const handleDeleteTransaction = (transaction, room) => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Điểm Khởi Đầu <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={memberForm.initialPoints}
-                    onChange={(e) => setMemberForm({...memberForm, initialPoints: e.target.value})}
-                    placeholder="Nhập điểm khởi đầu (VD: 0, 5.5, -2...)"
-                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    💡 Điểm này sẽ được áp dụng cho cả 3 ngày gần nhất
-                  </p>
-                </div>
+                  {!editingMember && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-sm text-green-800 font-semibold">
+                        ✅ Thành viên mới bắt đầu với <strong>0 điểm</strong>
+                      </p>
+                      <p className="text-xs text-green-700 mt-1">
+                        💡 Sau khi thêm, dùng <strong>"Giao dịch cộng điểm"</strong> (Admin → thành viên) 
+                        để cấp điểm — lịch sử sẽ được lưu đầy đủ.
+                      </p>
+                    </div>
+                  )}
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -3183,9 +3188,9 @@ const handleDeleteTransaction = (transaction, room) => {
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <p className="text-sm font-semibold text-blue-900 mb-2">📋 Thông tin:</p>
                   <ul className="text-xs text-blue-800 space-y-1">
-                    <li>• Điểm khởi đầu do Admin set (có thể âm, dương hoặc 0)</li>
-                    <li>• Điểm này sẽ được áp dụng cho cả 3 ngày gần nhất</li>
-                    <li>• Hệ thống tự động tạo sheet lịch sử cho thành viên (tên sheet = ID)</li>
+                    <li>• Thành viên mới luôn bắt đầu với 0 điểm</li>
+                    <li>• Dùng "Giao dịch cộng điểm" để cấp điểm ban đầu</li>
+                    <li>• Khi sửa thông tin, điểm sẽ không bị thay đổi</li>
                     <li>• ID phải là số duy nhất trong Room</li>
                   </ul>
                 </div>
@@ -3703,12 +3708,16 @@ const handleDeleteTransaction = (transaction, room) => {
                                 const member = showMemberHistory.member;
                                 const oldTrans = room.transactions[member.id][actualIndex];
                                 const newTrans = editingHistoryTransaction;
-                                
-                                const pointsDiff = newTrans.points - oldTrans.points;
+
+                                const pointsDiff = parseFloat((newTrans.points - oldTrans.points).toFixed(1));
                                 const currentDate = dateColumns[2];
-                                
-                                const updatedTransactions = [...room.transactions[member.id]];
-                                updatedTransactions[actualIndex] = {
+
+                                // ✅ Tìm partner để điều chỉnh điểm đối ứng
+                                const partnerMember = room.members.find(m => m.name === newTrans.partner);
+
+                                // Cập nhật giao dịch của member
+                                const updatedMemberTransactions = [...room.transactions[member.id]];
+                                updatedMemberTransactions[actualIndex] = {
                                   date: newTrans.date,
                                   description: newTrans.description,
                                   price: newTrans.price,
@@ -3716,35 +3725,84 @@ const handleDeleteTransaction = (transaction, room) => {
                                   partner: newTrans.partner,
                                   points: newTrans.points
                                 };
-                                
+
+                                // ✅ Cập nhật giao dịch cặp của partner
+                                let updatedPartnerTransactions = null;
+                                if (partnerMember && pointsDiff !== 0) {
+                                  const partnerTrans = room.transactions[partnerMember.id] || [];
+                                  const partnerTIndex = partnerTrans.findIndex(t =>
+                                    t.date === oldTrans.date &&
+                                    t.description === oldTrans.description &&
+                                    Math.abs(t.price - oldTrans.price) < 0.01 &&
+                                    t.partner === member.name
+                                  );
+                                  if (partnerTIndex !== -1) {
+                                    updatedPartnerTransactions = [...partnerTrans];
+                                    updatedPartnerTransactions[partnerTIndex] = {
+                                      ...updatedPartnerTransactions[partnerTIndex],
+                                      points: parseFloat(
+                                        (updatedPartnerTransactions[partnerTIndex].points - pointsDiff).toFixed(1)
+                                      )
+                                    };
+                                  }
+                                }
+
                                 setRooms(rooms.map(r => {
                                   if (r.id !== room.id) return r;
-                                  
+
+                                  const newTransactions = {
+                                    ...r.transactions,
+                                    [member.id]: updatedMemberTransactions,
+                                    ...(partnerMember && updatedPartnerTransactions
+                                      ? { [partnerMember.id]: updatedPartnerTransactions }
+                                      : {})
+                                  };
+
                                   return {
                                     ...r,
-                                    transactions: {
-                                      ...r.transactions,
-                                      [member.id]: updatedTransactions
-                                    },
+                                    transactions: newTransactions,
                                     members: r.members.map(m => {
-                                      if (m.id !== member.id) return m;
-                                      
-                                      const newTotal = Math.round((m.totalPoints + pointsDiff) * 10) / 10;
-                                      
-                                      return {
-                                        ...m,
-                                        points: {
-                                          ...m.points,
-                                          [currentDate]: newTotal
-                                        },
-                                        totalPoints: newTotal
-                                      };
+                                      // Cập nhật điểm member đang sửa
+                                      if (m.id === member.id && pointsDiff !== 0) {
+                                        const newTotal = parseFloat((m.totalPoints + pointsDiff).toFixed(1));
+                                        return {
+                                          ...m,
+                                          points: { ...m.points, [currentDate]: newTotal },
+                                          totalPoints: newTotal
+                                        };
+                                      }
+                                      // ✅ Cập nhật điểm partner - đảo ngược
+                                      if (partnerMember && m.id === partnerMember.id && pointsDiff !== 0) {
+                                        const newTotal = parseFloat((m.totalPoints - pointsDiff).toFixed(1));
+                                        return {
+                                          ...m,
+                                          points: { ...m.points, [currentDate]: newTotal },
+                                          totalPoints: newTotal
+                                        };
+                                      }
+                                      return m;
                                     })
                                   };
                                 }));
-                                
+
                                 setEditingHistoryTransaction(null);
-                                alert('Đã cập nhật giao dịch và điểm!');
+
+                                // ✅ Thông báo kết quả
+                                if (pointsDiff === 0) {
+                                  alert('Đã cập nhật giao dịch! (Điểm không thay đổi)');
+                                } else if (partnerMember) {
+                                  alert(
+                                    `Đã cập nhật giao dịch!\n\n` +
+                                    `↕️ ${member.name}: ${pointsDiff > 0 ? '+' : ''}${pointsDiff} điểm\n` +
+                                    `↕️ ${partnerMember.name}: ${pointsDiff > 0 ? '-' : '+'}${Math.abs(pointsDiff)} điểm (đối ứng)`
+                                  );
+                                } else {
+                                  alert(
+                                    `Đã cập nhật giao dịch!\n\n` +
+                                    `↕️ ${member.name}: ${pointsDiff > 0 ? '+' : ''}${pointsDiff} điểm\n` +
+                                    `⚠️ Không tìm thấy đối tác "${newTrans.partner}" để cân bằng.`
+                                  );
+                                }
                               }}
                               className="text-green-600 hover:bg-green-50 p-1 rounded"
                               title="Lưu"
@@ -3981,12 +4039,16 @@ const handleDeleteTransaction = (transaction, room) => {
                           const member = showMemberHistory.member;
                           const oldTrans = room.transactions[member.id][actualIndex];
                           const newTrans = editingHistoryTransaction;
-                          
-                          const pointsDiff = newTrans.points - oldTrans.points;
+
+                          const pointsDiff = parseFloat((newTrans.points - oldTrans.points).toFixed(1));
                           const currentDate = dateColumns[2];
-                          
-                          const updatedTransactions = [...room.transactions[member.id]];
-                          updatedTransactions[actualIndex] = {
+
+                          // ✅ Tìm partner để điều chỉnh điểm đối ứng
+                          const partnerMember = room.members.find(m => m.name === newTrans.partner);
+
+                          // Cập nhật giao dịch của member
+                          const updatedMemberTransactions = [...room.transactions[member.id]];
+                          updatedMemberTransactions[actualIndex] = {
                             date: newTrans.date,
                             description: newTrans.description,
                             price: newTrans.price,
@@ -3994,35 +4056,84 @@ const handleDeleteTransaction = (transaction, room) => {
                             partner: newTrans.partner,
                             points: newTrans.points
                           };
-                          
+
+                          // ✅ Cập nhật giao dịch cặp của partner
+                          let updatedPartnerTransactions = null;
+                          if (partnerMember && pointsDiff !== 0) {
+                            const partnerTrans = room.transactions[partnerMember.id] || [];
+                            const partnerTIndex = partnerTrans.findIndex(t =>
+                              t.date === oldTrans.date &&
+                              t.description === oldTrans.description &&
+                              Math.abs(t.price - oldTrans.price) < 0.01 &&
+                              t.partner === member.name
+                            );
+                            if (partnerTIndex !== -1) {
+                              updatedPartnerTransactions = [...partnerTrans];
+                              updatedPartnerTransactions[partnerTIndex] = {
+                                ...updatedPartnerTransactions[partnerTIndex],
+                                points: parseFloat(
+                                  (updatedPartnerTransactions[partnerTIndex].points - pointsDiff).toFixed(1)
+                                )
+                              };
+                            }
+                          }
+
                           setRooms(rooms.map(r => {
                             if (r.id !== room.id) return r;
-                            
+
+                            const newTransactions = {
+                              ...r.transactions,
+                              [member.id]: updatedMemberTransactions,
+                              ...(partnerMember && updatedPartnerTransactions
+                                ? { [partnerMember.id]: updatedPartnerTransactions }
+                                : {})
+                            };
+
                             return {
                               ...r,
-                              transactions: {
-                                ...r.transactions,
-                                [member.id]: updatedTransactions
-                              },
+                              transactions: newTransactions,
                               members: r.members.map(m => {
-                                if (m.id !== member.id) return m;
-                                
-                                const newTotal = Math.round((m.totalPoints + pointsDiff) * 10) / 10;
-                                
-                                return {
-                                  ...m,
-                                  points: {
-                                    ...m.points,
-                                    [currentDate]: newTotal
-                                  },
-                                  totalPoints: newTotal
-                                };
+                                // Cập nhật điểm member đang sửa
+                                if (m.id === member.id && pointsDiff !== 0) {
+                                  const newTotal = parseFloat((m.totalPoints + pointsDiff).toFixed(1));
+                                  return {
+                                    ...m,
+                                    points: { ...m.points, [currentDate]: newTotal },
+                                    totalPoints: newTotal
+                                  };
+                                }
+                                // ✅ Cập nhật điểm partner - đảo ngược
+                                if (partnerMember && m.id === partnerMember.id && pointsDiff !== 0) {
+                                  const newTotal = parseFloat((m.totalPoints - pointsDiff).toFixed(1));
+                                  return {
+                                    ...m,
+                                    points: { ...m.points, [currentDate]: newTotal },
+                                    totalPoints: newTotal
+                                  };
+                                }
+                                return m;
                               })
                             };
                           }));
-                          
+
                           setEditingHistoryTransaction(null);
-                          alert('Đã cập nhật giao dịch và điểm!');
+
+                          // ✅ Thông báo kết quả
+                          if (pointsDiff === 0) {
+                            alert('Đã cập nhật giao dịch! (Điểm không thay đổi)');
+                          } else if (partnerMember) {
+                            alert(
+                              `Đã cập nhật giao dịch!\n\n` +
+                              `↕️ ${member.name}: ${pointsDiff > 0 ? '+' : ''}${pointsDiff} điểm\n` +
+                              `↕️ ${partnerMember.name}: ${pointsDiff > 0 ? '-' : '+'}${Math.abs(pointsDiff)} điểm (đối ứng)`
+                            );
+                          } else {
+                            alert(
+                              `Đã cập nhật giao dịch!\n\n` +
+                              `↕️ ${member.name}: ${pointsDiff > 0 ? '+' : ''}${pointsDiff} điểm\n` +
+                              `⚠️ Không tìm thấy đối tác "${newTrans.partner}" để cân bằng.`
+                            );
+                          }
                         }}
                         className="bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 font-semibold text-sm"
                       >
