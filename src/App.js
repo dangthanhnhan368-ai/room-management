@@ -841,42 +841,64 @@ const handleAdminLogin = async () => {
   };
 
 const migratePointsToNewDay = (rooms, dateColumns) => {
-  console.log('🔄 Starting migration...', {
-    dateColumns,
-    currentDate: new Date().toLocaleDateString('vi-VN')
-  });
+  console.log('🔄 Starting migration...', { dateColumns });
 
   return rooms.map(room => ({
     ...room,
     members: room.members.map(member => {
       const newPoints = { ...member.points };
-      
-      // ✅ Ngày mới nhất (hôm nay)
       const latestDate = dateColumns[2];
-      
-      // ✅ Lấy điểm tích lũy hiện tại
-      const currentTotal = member.totalPoints !== undefined 
-        ? member.totalPoints 
-        : (newPoints[latestDate] || 0);
-      
-      // ✅ CHỈ migrate nếu ngày mới CHƯA có dữ liệu
-      if (newPoints[latestDate] === undefined) {
+
+      const getCurrentTotal = () => {
+        // Ưu tiên 1: totalPoints
+        if (member.totalPoints !== undefined && member.totalPoints !== null && member.totalPoints !== 0) {
+          return member.totalPoints;
+        }
+        // Ưu tiên 2: điểm ngày hôm qua
+        if (newPoints[dateColumns[1]] !== undefined && newPoints[dateColumns[1]] !== 0) {
+          return newPoints[dateColumns[1]];
+        }
+        // Ưu tiên 3: điểm ngày kia
+        if (newPoints[dateColumns[0]] !== undefined && newPoints[dateColumns[0]] !== 0) {
+          return newPoints[dateColumns[0]];
+        }
+        // Ưu tiên 4: tìm ngày gần nhất có giá trị khác 0
+        const allDates = Object.keys(newPoints);
+        if (allDates.length > 0) {
+          const sorted = allDates
+            .filter(d => newPoints[d] !== 0)
+            .sort((a, b) => {
+              const pa = a.split('/');
+              const pb = b.split('/');
+              if (pa.length === 3 && pb.length === 3) {
+                return new Date(parseInt(pb[2]), parseInt(pb[1]) - 1, parseInt(pb[0]))
+                     - new Date(parseInt(pa[2]), parseInt(pa[1]) - 1, parseInt(pa[0]));
+              }
+              return 0;
+            });
+          if (sorted.length > 0) return newPoints[sorted[0]];
+        }
+        // Ưu tiên 5: nếu tất cả = 0 thì trả về 0 (member thực sự có 0 điểm)
+        return member.totalPoints || 0;
+      };
+
+      const currentTotal = getCurrentTotal();
+
+      // Set ngày hôm nay
+      if (newPoints[latestDate] === undefined || 
+         (newPoints[latestDate] === 0 && currentTotal !== 0)) {
         console.log(`📅 Migrating ${member.name}: ${currentTotal} → ${latestDate}`);
         newPoints[latestDate] = currentTotal;
       }
-      
-      // ✅ KHÔNG GHI ĐÈ 2 ngày cũ - giữ nguyên hoặc set 0 nếu undefined
-      if (newPoints[dateColumns[0]] === undefined) {
-        newPoints[dateColumns[0]] = 0; // Ngày cũ nhất = 0 nếu chưa có
-      }
-      if (newPoints[dateColumns[1]] === undefined) {
-        newPoints[dateColumns[1]] = 0; // Ngày giữa = 0 nếu chưa có
-      }
-      
+
+      // Set 0 cho ngày cũ nếu chưa có
+      if (newPoints[dateColumns[0]] === undefined) newPoints[dateColumns[0]] = 0;
+      if (newPoints[dateColumns[1]] === undefined) newPoints[dateColumns[1]] = 0;
+
       return {
         ...member,
         points: newPoints,
-        totalPoints: currentTotal // Giữ nguyên totalPoints
+        totalPoints: newPoints[latestDate]
       };
     })
   }));
@@ -886,34 +908,28 @@ const migratePointsToNewDay = (rooms, dateColumns) => {
 
 useEffect(() => {
   if (rooms.length === 0 || isLoadingFromFirebase) return;
-  
+
   const lastMigrationDate = localStorage.getItem('lastMigrationDate');
   const today = new Date().toDateString();
-  const currentDateStr = dateColumns[2]; // Ngày hôm nay (dd/mm)
-  
-  console.log('🔍 Migration check:', {
-    lastMigrationDate,
-    today,
-    currentDateStr,
-    needMigrate: lastMigrationDate !== today
-  });
-  
-  // Chỉ migrate nếu:
-  // 1. Chưa migrate hôm nay
-  // 2. Có ít nhất 1 member chưa có điểm cho ngày hôm nay
+  const currentDateStr = dateColumns[2]; // Hôm nay dd/mm/yyyy
+
   if (lastMigrationDate !== today) {
-    const needMigration = rooms.some(room => 
-      room.members.some(member => member.points[currentDateStr] === undefined)
+    const needMigration = rooms.some(room =>
+      room.members.some(member => {
+        const val = member.points[currentDateStr];
+        // Cần migrate nếu: chưa có key, HOẶC = 0 nhưng totalPoints khác 0
+        return val === undefined || (val === 0 && member.totalPoints !== 0 && member.totalPoints !== undefined);
+      })
     );
-    
+
     if (needMigration) {
-      console.log('🔄 Migrating points to new day...');
+      console.log('🔄 Local migration for display...');
       const migratedRooms = migratePointsToNewDay(rooms, dateColumns);
       setRooms(migratedRooms);
+      // ✅ KHÔNG lưu Firebase - GitHub Actions đã xử lý lúc 00:01
       localStorage.setItem('lastMigrationDate', today);
-      console.log('✅ Points migrated successfully');
+      console.log('✅ Local migration done');
     } else {
-      console.log('⏭️ Skip migration - all members already have points for today');
       localStorage.setItem('lastMigrationDate', today);
     }
   }
